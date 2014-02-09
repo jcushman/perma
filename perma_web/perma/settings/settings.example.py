@@ -95,3 +95,6 @@ LOGGING = {
         },
     }
 }
+
+# necessary to set if using different domains for mirroring
+# CSRF_COOKIE_DOMAIN = '.perma.cc'
