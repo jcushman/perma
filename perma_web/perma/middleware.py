@@ -85,5 +85,5 @@ class MirrorForwardingMiddleware(object):
             if can_be_mirrored and host == main_server_host:
                 return HttpResponsePermanentRedirect(get_url_for_host(request, get_generic_server_host(request)))
 
-            elif not can_be_mirrored and host != main_server_host:
+            elif not can_be_mirrored and (settings.MIRROR_SERVER or host != main_server_host):
                 return HttpResponsePermanentRedirect(get_url_for_host(request, get_main_server_host(request)))

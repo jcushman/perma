@@ -7,17 +7,7 @@ from twisted.web.server import NOT_DONE_YET
 from twisted.internet import reactor
 from twisted.web import proxy, server, vhost
 
-from django.core.management.base import BaseCommand, CommandError
-
-
-# class RandomReverseProxyResource(proxy.ReverseProxyResource):
-#     def __init__(self, host, ports, *args, **kwargs):
-#         self.ports = ports
-#         proxy.ReverseProxyResource.__init__(self, host, ports[0], *args, **kwargs)
-#
-#     def render(self, request):
-#         self.port = random.choice(self.ports)
-#         return proxy.ReverseProxyResource.render(self, request)
+from django.core.management.base import BaseCommand
 
 
 class ForwardedReverseProxyResource(proxy.ReverseProxyResource):
@@ -38,8 +28,8 @@ class ForwardedReverseProxyResource(proxy.ReverseProxyResource):
         return NOT_DONE_YET
 
 class Command(BaseCommand):
-    args = '<poll_id poll_id ...>'
-    help = 'Closes the specified poll for voting'
+    args = ''
+    help = 'Runs main server and mirror server.'
 
     def handle(self, *args, **options):
         main_server = None
@@ -58,7 +48,6 @@ class Command(BaseCommand):
 
             print "Launching reverse proxy ..."
             root = vhost.NameVirtualHost()
-            #root.addHost('perma.dev', RandomReverseProxyResource('127.0.0.1', [8001, 8002], ''))
             root.addHost('users.perma.dev', ForwardedReverseProxyResource('127.0.0.1', 8001, ''))
             root.addHost('perma.dev', ForwardedReverseProxyResource('127.0.0.1', 8002, ''))
             site = server.Site(root)
