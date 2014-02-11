@@ -162,8 +162,9 @@ def single_linky(request, guid):
                 except urllib2.HTTPError:
                     raise Http404
                 context = json.loads(link_json.read())
-                context['asset'] = serializers.deserialize("json", context['asset']).next().object
                 context['linky'] = serializers.deserialize("json", context['linky']).next().object
+                context['asset'] = serializers.deserialize("json", context['asset']).next().object
+                context['asset'].link = context['linky']
                 print context
             else:
                 raise Http404

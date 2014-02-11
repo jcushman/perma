@@ -159,7 +159,7 @@
 
 			{% if serve_type == 'live' %}
 				{% if display_iframe %}
-				<iframe src="{{ asset_host }}{{linky.submitted_url}}"{% if not asset.pdf_capture %} sandbox="allow-forms" {% endif %}>
+				<iframe src="{{linky.submitted_url}}"{% if not asset.pdf_capture %} sandbox="allow-forms" {% endif %}>
 				  <p>Unable to create a live view of the {{linky.submitted_url}}</p>
 				</iframe>
 				{% else %}
@@ -192,7 +192,7 @@
 
             {# TEMPORARY SERVE TYPE UNTIL WE COMPLETELY SWITCH TO WARC #}
         	{% if serve_type == 'warc' %}
-                <iframe src="/warc/{{ linky.pk }}/{{linky.submitted_url}}" sandbox="allow-forms allow-scripts">
+                <iframe src="{{ asset_host }}/warc/{{ linky.pk }}/{{linky.submitted_url}}" sandbox="allow-forms allow-scripts">
                   <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
                 </iframe>
 			{% endif %}
