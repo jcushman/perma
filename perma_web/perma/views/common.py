@@ -1,4 +1,10 @@
 import json
+from datetime import datetime
+import urllib2, os, logging
+from urlparse import urlparse
+import surt, cdx_writer
+from ratelimit.decorators import ratelimit
+
 from django.core import serializers
 from django.template import RequestContext
 from django.shortcuts import render_to_response, get_object_or_404
@@ -8,20 +14,16 @@ from django.conf import settings
 from django.contrib.sites.models import Site
 from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
-
-from datetime import datetime
-import urllib2, os, logging
-from urlparse import urlparse
 from django.views.decorators.csrf import csrf_exempt
-import surt, cdx_writer
-from perma.middleware import get_url_for_host, get_main_server_host
 
+from perma.middleware import get_url_for_host, get_main_server_host
 from perma.models import Link, Asset
 from perma.utils import require_group, can_be_mirrored
-from ratelimit.decorators import ratelimit
+
 
 logger = logging.getLogger(__name__)
-valid_serve_types = ['image','pdf','source','text']
+valid_serve_types = ['live', 'image','pdf','source','text']
+
 
 class DirectTemplateView(TemplateView):
     extra_context = None
@@ -126,48 +128,41 @@ def single_linky(request, guid):
         Link.objects.filter(guid=guid).update(vested = True, vested_by_editor = request.user, vested_timestamp = datetime.now())
 
         return HttpResponseRedirect(reverse('single_linky', args=[guid]))
+
+    canonical_guid = Link.get_canonical_guid(guid)
+    if canonical_guid != guid:
+        return HttpResponsePermanentRedirect(reverse('single_linky', args=[canonical_guid]))
+
+    context = None
+
+    # User requested archive type
+    if not settings.USE_WARC_ARCHIVE:
+        valid_serve_types = ['image','pdf','source','text', 'warc']
     else:
-        canonical_guid = Link.get_canonical_guid(guid)
-
-        if canonical_guid != guid:
-            return HttpResponsePermanentRedirect(reverse('single_linky', args=[canonical_guid]))
-
-        context = None
-        # User requested archive type
+        global valid_serve_types
+    serve_type = request.GET.get('type','live')
+    if not serve_type in valid_serve_types:
         serve_type = 'live'
 
-        if 'type' in request.REQUEST:
-            requested_type = request.REQUEST['type']
-
-            if requested_type == 'image':
-                serve_type = 'image'
-            elif requested_type == 'pdf':
-                serve_type = 'pdf'
-            elif requested_type == 'source':
-                serve_type = 'source'
-            elif requested_type == 'text':
-                serve_type = 'text'
-
-        try:
-            link = Link.objects.get(guid=guid)
-        except Link.DoesNotExist:
-            if settings.MIRROR_SERVER:
-                # if we can't find the Link, and we're a mirror server, try fetching it from main server
-                try:
-                    req = urllib2.Request(get_url_for_host(request,
-                                                           get_main_server_host(request),
-                                                           reverse('single_link_main_server', args=[guid])+"?type="+serve_type),
-                                          headers={'Content-Type': 'application/json'})
-                    link_json = urllib2.urlopen(req)
-                except urllib2.HTTPError:
-                    raise Http404
-                context = json.loads(link_json.read())
-                context['linky'] = serializers.deserialize("json", context['linky']).next().object
-                context['asset'] = serializers.deserialize("json", context['asset']).next().object
-                context['asset'].link = context['linky']
-                print context
-            else:
+    try:
+        link = Link.objects.get(guid=guid)
+    except Link.DoesNotExist:
+        if settings.MIRROR_SERVER:
+            # if we can't find the Link, and we're a mirror server, try fetching it from main server
+            try:
+                req = urllib2.Request(get_url_for_host(request,
+                                                       get_main_server_host(request),
+                                                       reverse('single_link_main_server', args=[guid])+"?type="+serve_type),
+                                      headers={'Content-Type': 'application/json'})
+                link_json = urllib2.urlopen(req)
+            except urllib2.HTTPError:
                 raise Http404
+            context = json.loads(link_json.read())
+            context['linky'] = serializers.deserialize("json", context['linky']).next().object
+            context['asset'] = serializers.deserialize("json", context['asset']).next().object
+            context['asset'].link = context['linky']
+        else:
+            raise Http404
 
     if not context:
         # Increment the view count if we're not the referrer
@@ -179,15 +174,6 @@ def single_linky(request, guid):
             link.save()
 
         asset = Asset.objects.get(link=link)
-
-        # User requested archive type
-        if not settings.USE_WARC_ARCHIVE:
-            valid_serve_types = ['image','pdf','source','text', 'warc']
-        else:
-            global valid_serve_types
-        serve_type = request.GET.get('type','live')
-        if not serve_type in valid_serve_types:
-            serve_type = 'live'
 
         text_capture = None
         if serve_type == 'text':
@@ -211,7 +197,7 @@ def single_linky(request, guid):
                 # Something is broken with the site, so we might as well display it in an iFrame so the user knows
                 display_iframe = True
 
-        asset= Asset.objects.get(link__guid=link.guid)
+        asset = Asset.objects.get(link__guid=link.guid)
 
         created_datestamp = link.creation_timestamp
         pretty_date = created_datestamp.strftime("%B %d, %Y %I:%M GMT")
@@ -221,6 +207,7 @@ def single_linky(request, guid):
                    'asset_host':''}
 
     if request.META.get('CONTENT_TYPE') == 'application/json':
+        # if we were called as JSON (by a mirror), serialize and send back as JSON
         context['asset_host'] = "http%s://%s" % ('s' if request.is_secure() else '', get_main_server_host(request))
         context['asset'] = serializers.serialize("json", [context['asset']], fields=['text_capture','image_capture','pdf_capture','warc_capture','base_storage_path'])
         context['linky'] = serializers.serialize("json", [context['linky']], fields=['dark_archived','guid','vested','view_count','creation_timestamp','submitted_url','submitted_title'])
