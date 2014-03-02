@@ -26,3 +26,20 @@ CDX_SERVER_URL = 'http://127.0.0.1:8000/cdx'
 STATIC_ROOT = os.path.join(SERVICES_DIR, 'django/static_assets')
 
 PHANTOMJS_BINARY = "/usr/bin/phantomjs"
+
+# Make this unique, and don't share it with anybody.
+SECRET_KEY = 'secret'
+
+# Hosts/domain names that are valid for this site; required if DEBUG is False
+# See https://docs.djangoproject.com/en/1.5/ref/settings/#allowed-hosts
+ALLOWED_HOSTS = []
+
+# Instapaper credentials
+INSTAPAPER_KEY = 'key'
+INSTAPAPER_SECRET = 'secret'
+INSTAPAPER_USER = 'user@example.com'
+INSTAPAPER_PASS = 'pass'
+
+# Google Analytics
+GOOGLE_ANALYTICS_KEY = 'UA-XXXXX-X'
+GOOGLE_ANALYTICS_DOMAIN = 'example.com'
