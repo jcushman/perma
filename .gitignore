@@ -6,3 +6,9 @@ perma_web/perma/settings/settings.py
 perma_web/celerybeat-schedule*
 .idea
 venv
+.vagrant
+
+services/django/generated_assets/*
+services/django/static_assets/*
+services/logs/*
+services/mysql/data
