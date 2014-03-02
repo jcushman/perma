@@ -1,5 +1,3 @@
-perma_web/static/generated/*
-!perma_web/static/generated/README
 *.pyc
 perma_web/lib/phantomjs
 perma_web/perma/settings/settings.py
@@ -10,6 +8,10 @@ venv
 .vagrant
 
 services/django/generated_assets/*
+!services/django/generated_assets/README
 services/django/static_assets/*
+!services/django/static_assets/README
 services/logs/*
-services/mysql/data
+!services/logs/README
+services/mysql/data/*
+!services/mysql/data/README
