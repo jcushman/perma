@@ -1,9 +1,60 @@
 Installing Perma
 =====
 
-## Install
+## Quick Start
 
 Perma is a Python application running in Django.
+
+If you are running Perma locally for development, we recommend using our pre-built
+[Vagrant](http://docs.vagrantup.com/v2/getting-started/) virtual machine. This will take more disk space (~700MB),
+but will let you jump into coding instead of trying to get all the services running on your machine.
+
+First you'll need some dependencies:
+
+* [Git](http://git-scm.com/downloads)
+* [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+* [Vagrant](http://www.vagrantup.com/downloads.html)
+
+Then check out the code:
+
+    $ git clone https://github.com/harvard-lil/perma.git
+    $ cd perma
+
+Start up the vagrant virtual machine in the background:
+
+    $ vagrant up
+
+The first time this runs it will have to download the ~700MB disk image.
+
+Connect to the virtual machine:
+
+    $ vagrant ssh
+    Welcome to Ubuntu 12.04 LTS (GNU/Linux 3.2.0-23-generic x86_64)
+    ...
+    (perma)vagrant@perma_0.1:/vagrant/perma_web$
+
+You are now logged into the VM. The prompt you see means you have the `(perma)` virtualenv activated,
+you are logged in as the user `vagrant`, you are using the `perma_0.1` VM, and you are in the `/vagrant/perma_web` folder.
+
+`/vagrant` is a shared folder in the guest machine that maps to the `perma` repo you just checked out on your host machine,
+so any changes you make on your local computer will appear inside `/vagrant` and vice versa.
+
+Now you're in the Django project folder and can develop like normal. First let's initialize the database
+(this will call `syncdb`, apply South migrations, and load fixtures):
+
+    (perma)vagrant@perma_0.1:/vagrant/perma_web$ fab init_test_db
+
+Then you can run the test server:
+
+    (perma)vagrant@perma_0.1:/vagrant/perma_web$ python manage.py runserver 0.0.0.0:8000
+
+That's it! You should now be able to load Perma in your browser at `http://127.0.0.1:8000/`.
+(Note that you have to provide the full IP and port to `runserver`, so the test server will be available
+from your host machine).
+
+## Install
+
+If you want to set up a server from scratch instead of using our VM, here's how to do it.
 
 ### Python, Django, and modules
 

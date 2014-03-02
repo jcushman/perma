@@ -2,6 +2,9 @@ from functools import wraps
 import sys
 from datetime import date
 from fabric.api import *
+from fabric.contrib import django
+
+django.project('perma')
 from django.conf import settings
 
 
@@ -14,10 +17,9 @@ LOCAL_DB_SETTINGS = settings.DATABASES['default']
 DATABASE_BACKUP_DIR = 'database_backups' # If relative path, dir is relative to REMOTE_DIR. If None, no backup will be done.
 
 try:
-    from .fab_targets import *
+    from fab_targets import *
 except ImportError:
-    print "\n\nDid you create a fab_targets.py file?\n"
-    raise
+    print "Warning: no fab_targets file found."
 
 _already_setup = False
 def setup_remote(f):
@@ -111,3 +113,8 @@ def shell():
     from fabric.context_managers import char_buffered
     with char_buffered(sys.stdin):
         open_shell("cd %s && workon %s" % (env.REMOTE_DIR, env.VIRTUALENV_NAME))
+
+def init_test_db():
+    local("python manage.py syncdb --noinput")
+    local("python manage.py migrate")
+    local("python manage.py loaddata fixtures/users.json fixtures/groups.json")
