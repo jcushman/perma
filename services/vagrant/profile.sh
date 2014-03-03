@@ -7,10 +7,11 @@ source /usr/local/bin/virtualenvwrapper.sh
 
 # start celery
 # TODO: celery is automatically started on boot, so this shouldn't be necessary, but for some reason it fails at that point
-sudo start celery
+sudo start celery >> ~/.service_log 2>&1 &
 
-# mysql also seems to fail sometimes
-sudo start mysql
+# mysql seems to be running-but-not-running after boot
+# TODO: fix mysql boot
+( (sudo stop mysql >> ~/.service_log 2>&1; sudo start mysql >> ~/.service_log 2>&1) &)
 
 # prepare for Django work
 workon perma
