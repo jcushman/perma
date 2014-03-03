@@ -115,6 +115,9 @@ def shell():
         open_shell("cd %s && workon %s" % (env.REMOTE_DIR, env.VIRTUALENV_NAME))
 
 def init_test_db():
+    """
+        Run syncdb, South migrate, and import fixtures for new dev database.
+    """
     local("python manage.py syncdb --noinput")
     local("python manage.py migrate")
     local("python manage.py loaddata fixtures/users.json fixtures/groups.json")
