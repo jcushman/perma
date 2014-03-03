@@ -19,6 +19,7 @@ Then check out the code:
 
     $ git clone https://github.com/harvard-lil/perma.git
     $ cd perma
+    $ git submodule init && git submodule update
 
 Start up the vagrant virtual machine in the background:
 

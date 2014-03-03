@@ -3,4 +3,5 @@ try:
 except ImportError, e:
     if e.message=='No module named settings':
         from .settings_dev import *
-    raise
+    else:
+        raise

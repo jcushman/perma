@@ -5,6 +5,13 @@
 export WORKON_HOME=/home/vagrant/.virtualenvs
 source /usr/local/bin/virtualenvwrapper.sh
 
-workon perma
+# start celery
+# TODO: celery is automatically started on boot, so this shouldn't be necessary, but for some reason it fails at that point
+sudo start celery
 
+# mysql also seems to fail sometimes
+sudo start mysql
+
+# prepare for Django work
+workon perma
 cd /vagrant/perma_web
