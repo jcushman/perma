@@ -54,3 +54,6 @@ STATICFILES_DIRS = (
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
 )
+
+# necessary to set if using different domains for mirroring
+# CSRF_COOKIE_DOMAIN = '.perma.cc'

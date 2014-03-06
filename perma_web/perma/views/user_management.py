@@ -1,13 +1,18 @@
-import random, string, logging, json
+import random, string, logging, json, time
+from datetime import datetime
+
+from mptt.exceptions import InvalidMove
+from ratelimit.decorators import ratelimit
 
 from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME, login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth import views as auth_views
 from django.contrib.sites.models import get_current_site
 from django.core.mail import send_mail
 from django.db.models import Q
-from django.utils.http import is_safe_url
+from django.utils.http import is_safe_url, cookie_date
 from django.http import HttpResponseRedirect, HttpResponse, Http404
 from django.template import RequestContext
 from django.template.response import TemplateResponse
@@ -17,8 +22,6 @@ from django.core.context_processors import csrf
 from django.core.paginator import Paginator
 from django.contrib.auth.models import Group
 from django.contrib import messages
-from mptt.exceptions import InvalidMove
-from ratelimit.decorators import ratelimit
 
 from perma.forms import (
     RegistrarForm, 
@@ -790,6 +793,29 @@ def link_browser(request, path, link_filter, this_page, verb):
     return render_to_response('user_management/created-links.html', context)
 
 
+@require_group(['registrar_member', 'registry_member', 'vesting_manager', 'vesting_member'])
+def vest_link(request, guid):
+    if request.method == 'POST':
+        link = get_object_or_404(Link, guid=guid)
+        if not link.vested:
+            link.vested=True
+            link.vested_by_editor=request.user
+            link.vested_timestamp=datetime.now()
+            link.save()
+    return HttpResponseRedirect(reverse('single_linky', args=[guid]))
+
+
+@require_group('registry_member')
+def dark_archive_link(request, guid):
+    link = get_object_or_404(Link, guid=guid)
+    if request.method == 'POST':
+        if not link.dark_archived:
+            link.dark_archived=True
+            link.save()
+        return HttpResponseRedirect(reverse('single_linky', args=[guid]))
+    return render_to_response('dark-archive-link.html', {'linky': link}, RequestContext(request))
+
+
 @login_required
 def manage_account(request):
     """
@@ -876,7 +902,26 @@ def account_is_deactivated(request):
     Informing a user that their account has been deactivated.
     """
     return render_to_response('user_management/deactivated.html')
-    
+
+
+def get_mirror_cookie_domain(request):
+    host = request.get_host().split(':')[0] # remove port
+    if host.startswith(settings.MIRROR_USERS_SUBDOMAIN+'.'):
+        host = host[len(settings.MIRROR_USERS_SUBDOMAIN+'.'):]
+    return '.'+host
+
+
+def logout(request):
+    response = auth_views.logout(request, template_name='registration/logout.html')
+    # on logout, delete the mirror cookie
+    print "DELETING", (settings.MIRROR_COOKIE_NAME,
+                       get_mirror_cookie_domain(request),
+                              settings.SESSION_COOKIE_PATH)
+
+    response.delete_cookie(settings.MIRROR_COOKIE_NAME,
+                           domain=get_mirror_cookie_domain(request),
+                           path=settings.SESSION_COOKIE_PATH)
+    return response
 
 @ratelimit(field='email', method='POST', rate=settings.LOGIN_MINUTE_LIMIT, block='True', ip=True)
 #@ratelimit(method='POST', rate=settings.LOGIN_HOUR_LIMIT, block='True', ip=True)
@@ -895,12 +940,12 @@ def limited_login(request, template_name='registration/login.html',
         form = authentication_form(request, data=request.POST)
         username = request.POST.get('username')
         try:
-          target_user = LinkUser.objects.get(email=username)
+            target_user = LinkUser.objects.get(email=username)
         except LinkUser.DoesNotExist:
-          target_user = None
+            target_user = None
         if target_user and not target_user.is_confirmed:
-          request.session['email'] = target_user.email
-          return HttpResponseRedirect(reverse('user_management_not_active'))
+            request.session['email'] = target_user.email
+            return HttpResponseRedirect(reverse('user_management_not_active'))
         elif target_user and not target_user.is_active:
             return HttpResponseRedirect(reverse('user_management_account_is_deactivated'))
             
@@ -919,7 +964,32 @@ def limited_login(request, template_name='registration/login.html',
             # Okay, security check complete. Log the user in.
             auth_login(request, form.get_user())
 
-            return HttpResponseRedirect(redirect_to)
+            response = HttpResponseRedirect(redirect_to)
+
+            # Set the user-info cookie for mirror servers.
+            # This will be set by the main server, e.g. //direct.perma.cc,
+            # but will be readable by any mirror serving //perma.cc.
+            user_info = {
+                'groups':[group.pk for group in request.user.groups.all()],
+            }
+            # The cookie should last as long as the login cookie, so cookie logic is copied from SessionMiddleware.
+            if request.session.get_expire_at_browser_close():
+                max_age = None
+                expires = None
+            else:
+                max_age = request.session.get_expiry_age()
+                expires_time = time.time() + max_age
+                expires = cookie_date(expires_time)
+            response.set_cookie(settings.MIRROR_COOKIE_NAME,
+                                json.dumps(user_info),
+                                max_age=max_age,
+                                expires=expires,
+                                domain=get_mirror_cookie_domain(request),
+                                path=settings.SESSION_COOKIE_PATH,
+                                secure=settings.SESSION_COOKIE_SECURE or None,
+                                httponly=settings.SESSION_COOKIE_HTTPONLY or None)
+
+            return response
     else:
         form = authentication_form(request)
 
