@@ -67,6 +67,9 @@ STATIC_ROOT = ''
 # Example: "http://example.com/static/", "http://static.example.com/"
 STATIC_URL = '/static/'
 
+# URL prefix for our archives
+ARCHIVE_URL = STATIC_URL
+
 # List of finder classes that know how to find static files in
 # various locations.
 STATICFILES_FINDERS = (

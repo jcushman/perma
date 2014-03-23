@@ -1,6 +1,9 @@
 from functools import wraps
+import shutil
 import sys, os
 from datetime import date
+import tempfile
+from django.utils.crypto import get_random_string
 from fabric.api import *
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perma.settings')
@@ -132,3 +135,21 @@ def run(port="0.0.0.0:8000"):
         Run django test server on open port, so it's accessible outside Vagrant.
     """
     local("python manage.py runserver %s" % port)
+
+def heroku_create_app(app_name):
+    local("heroku apps:create %s" % app_name)
+    local("heroku config:set DJANGO_SETTINGS_MODULE=perma.settings.settings_heroku")
+    local("heroku config:set SECRET_KEY=%s" % get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789'))
+    local("heroku config:add BUILDPACK_URL=git://github.com/jcushman/heroku-buildpack-python.git")
+    local("heroku addons:add cleardb:ignite")
+
+def heroku_push(branch="develop", dest_dir=None, source_dir=settings.PROJECT_ROOT+"/../"):
+    if not dest_dir:
+        dest_dir = tempfile.mkdtemp()
+    local("git clone --no-hardlinks %s %s" % (source_dir, dest_dir))
+    with lcd(dest_dir):
+        local("git filter-branch --prune-empty --subdirectory-filter perma_web/ HEAD")
+        local(r'sed "s/perma_web\///g" %s/.gitmodules > .gitmodules' % source_dir)
+        local("heroku git:remote -a perma")
+    #local("git push heroku %s:master" % branch)
+    #shutil.rmtree(tmp_dir)

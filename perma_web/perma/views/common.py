@@ -1,4 +1,5 @@
 from django.core import serializers
+from django.core.files.storage import default_storage
 from django.template import RequestContext
 from django.shortcuts import render_to_response
 from django.http import HttpResponseRedirect, HttpResponsePermanentRedirect, Http404, HttpResponse
@@ -65,6 +66,7 @@ def cdx(request):
         If there's no warc for the requested GUID, or the requested URL isn't stored in that WARC, it returns a 404.
     """
     # find requested link and url
+    print request.POST
     try:
         link = Link.objects.select_related().get(pk=request.POST.get('guid'))
     except Link.DoesNotExist:
@@ -75,32 +77,34 @@ def cdx(request):
     # get warc file
     for asset in link.assets.all():
         if '.warc' in asset.warc_capture:
-            warc_path = os.path.join(settings.GENERATED_ASSETS_STORAGE, asset.base_storage_path, asset.warc_capture)
+            warc_path = os.path.join(asset.base_storage_path, asset.warc_capture)
             break
     else:
         if settings.USE_WARC_ARCHIVE:
             print "COULDN'T FIND WARC"
             raise Http404 # no .warc file -- do something to handle this
         else:
-            warc_path = os.path.join(settings.GENERATED_ASSETS_STORAGE, asset.base_storage_path, "archive.warc.gz")
+            warc_path = os.path.join(asset.base_storage_path, "archive.warc.gz")
 
     # get cdx file
     cdx_path = warc_path.replace('.gz', '').replace('.warc', '.cdx')
     try:
-        cdx_file = open(cdx_path, 'rb')
+        cdx_lines = default_storage.open(os.path.join(settings.GENERATED_ASSETS_STORAGE, cdx_path), 'rb')
     except IOError:
         # if we can't find the CDX file associated with this WARC, create it
         cdx_lines = StringIO.StringIO()
-        cdx_writer.CDX_Writer(warc_path, cdx_lines).make_cdx()
-        cdx_lines = cdx_lines.getvalue().split("\n")
-        with open(cdx_path, 'wb') as cdx_file:
-            cdx_file.write("\n".join(sorted(cdx_lines)))
-        cdx_file = open(cdx_path, 'rb')
+        writer = cdx_writer.CDX_Writer(os.path.join(settings.GENERATED_ASSETS_STORAGE, warc_path), cdx_lines)
+        writer.warc_path = warc_path
+        writer.make_cdx()
+        cdx_lines = sorted(cdx_lines.getvalue().split("\n"))
+        with default_storage.open(cdx_path, 'wb') as cdx_file:
+            cdx_file.write("\n".join(cdx_lines))
+        cdx_lines = [x+"\n" for x in cdx_lines] # put "\n" back on so we can treat this like a file
 
     # find cdx lines for url
     sorted_url = surt.surt(url)
     out = ""
-    for line in cdx_file:
+    for line in cdx_lines:
         if line.startswith(sorted_url+" "):
             out += line
         elif out:
@@ -109,6 +113,7 @@ def cdx(request):
             break
 
     if out:
+        print "returning", out
         return HttpResponse(out, content_type="text/plain")
 
     print "COULDN'T FIND URL"
@@ -206,11 +211,12 @@ def single_linky(request, guid):
 
         context = {'linky': link, 'asset': asset, 'pretty_date': pretty_date, 'next': request.get_full_path(),
                    'display_iframe': display_iframe, 'serve_type': serve_type, 'text_capture': text_capture,
-                   'asset_host':''}
+                   'asset_url':settings.ARCHIVE_URL, 'warc_url':'/warc/'}
 
     if request.META.get('CONTENT_TYPE') == 'application/json':
         # if we were called as JSON (by a mirror), serialize and send back as JSON
-        context['asset_host'] = "http%s://%s" % ('s' if request.is_secure() else '', request.main_server_host)
+        context['asset_url'] = request.build_absolute_uri(context['asset_url'])
+        context['warc_url'] = request.build_absolute_uri(context['warc_url'])
         context['asset'] = serializers.serialize("json", [context['asset']], fields=['text_capture','image_capture','pdf_capture','warc_capture','base_storage_path'])
         context['linky'] = serializers.serialize("json", [context['linky']], fields=['dark_archived','guid','vested','view_count','creation_timestamp','submitted_url','submitted_title'])
         return HttpResponse(json.dumps(context), content_type="application/json")

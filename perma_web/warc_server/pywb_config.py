@@ -45,7 +45,7 @@ def create_perma_pywb_app():
 
     # use util func to create the handler
     wb_handler = create_wb_handler(index_reader,
-                                   dict(archive_paths=['file://'],
+                                   dict(archive_paths=[settings.PYWB_ARCHIVE_LOCATION],
                                         wb_handler_class=Handler,
                                         buffer_response=True,
                                         redir_to_exact=False),

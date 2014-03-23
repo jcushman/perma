@@ -1,0 +1,7 @@
+# make sure libffi is in path
+set-env LD_LIBRARY_PATH "\$LD_LIBRARY_PATH:/app/vendor/libffi-3.0/lib"
+
+# collectstatic
+#export DJANGO_SETTINGS_MODULE=perma.settings.settings_heroku
+#export DJANGO__SECRET_KEY=temp
+#source $BIN_DIR/steps/collectstatic

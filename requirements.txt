@@ -31,7 +31,3 @@ git+git://github.com/internetarchive/warcprox.git@5d09aea67d8f46221e5ee866ea1d19
 # heroku requirements
 dj_database_url==0.3.0
 dj-static==0.0.5
-gunicorn==18.0
-gevent==1.0
-django-storages==1.1.8
-boto==2.27.0

@@ -177,17 +177,17 @@
 			{% endif %}
 			
 			{% if serve_type == 'image' %}
-			<img class="image-view" src="{{ asset_host }}{{ asset.image_url }}"/>
+			<img class="image-view" src="{{ asset_url }}{{ asset.image_url }}"/>
 			{% endif %}
 			
 			{% if serve_type == 'pdf' %}
-			<iframe src="{{ asset_host }}{{ asset.pdf_url }}">
+			<iframe src="{{ asset_url }}{{ asset.pdf_url }}">
 			  <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
 			</iframe>
 			{% endif %}
 			
 			{% if serve_type == 'source' %}
-			<iframe src="{{ asset_host }}{{ asset.warc_url }}" sandbox="allow-forms allow-scripts">
+			<iframe src="{{ asset_url }}{{ asset.warc_url }}" sandbox="allow-forms allow-scripts">
 			  <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
 			</iframe>
 			{% endif %}
@@ -200,7 +200,7 @@
 
             {# TEMPORARY SERVE TYPE UNTIL WE COMPLETELY SWITCH TO WARC #}
         	{% if serve_type == 'warc' %}
-                <iframe src="{{ asset_host }}/warc/{{ linky.pk }}/{{linky.submitted_url}}" sandbox="allow-forms allow-scripts">
+                <iframe src="{{ warc_url }}/warc/{{ linky.pk }}/{{linky.submitted_url}}" sandbox="allow-forms allow-scripts">
                   <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
                 </iframe>
 			{% endif %}
