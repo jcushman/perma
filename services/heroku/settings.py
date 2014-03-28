@@ -1,6 +1,6 @@
-from .settings_prod import *
+# This file will be copied to settings/__init__.py by `fab heroku_push`
 
-# via https://devcenter.heroku.com/articles/getting-started-with-django#django-settings
+from .settings_prod import *
 
 # Parse database configuration from $DATABASE_URL
 if os.environ.has_key('CLEARDB_DATABASE_URL'):
@@ -11,6 +11,7 @@ if os.environ.has_key('CLEARDB_DATABASE_URL'):
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Allow all host headers
+# TODO: this is from Heroku's getting started with Django page -- is there a safer way?
 ALLOWED_HOSTS = ['*']
 
 # Static asset configuration

@@ -43,7 +43,7 @@ so any changes you make on your local computer will appear inside `/vagrant` and
 Now you're in the Django project folder and can develop like normal. First let's initialize the database
 (this will call `syncdb`, apply South migrations, and load fixtures):
 
-    (perma)vagrant@perma_0.1:/vagrant/perma_web$ fab init_test_db
+    (perma)vagrant@perma_0.1:/vagrant/perma_web$ fab init_dev_db
 
 Then you can run the test server:
 
