@@ -130,7 +130,7 @@ def create_link(request):
 
             # Sometimes our phantomjs capture fails. if it doesn't add it to our response object
             if asset.image_capture != 'pending' and asset.image_capture != 'failed':
-                response_object['linky_cap'] = settings.STATIC_URL + asset.base_storage_path + '/' + asset.image_capture
+                response_object['linky_cap'] = settings.MEDIA_URL + asset.base_storage_path + '/' + asset.image_capture
                 
 
         return HttpResponse(json.dumps(response_object), content_type="application/json", status=201)
@@ -194,7 +194,7 @@ def upload_file(request):
                 time_tuple = now.timetuple()
                 path_elements = [str(time_tuple.tm_year), str(time_tuple.tm_mon), str(time_tuple.tm_mday), str(time_tuple.tm_hour), str(time_tuple.tm_min), link.guid]
 
-                linky_home_disk_path = settings.GENERATED_ASSETS_STORAGE + '/' + os.path.sep.join(path_elements)
+                linky_home_disk_path = settings.MEDIA_ROOT + '/' + os.path.sep.join(path_elements)
 
                 if not os.path.exists(linky_home_disk_path):
                     os.makedirs(linky_home_disk_path)

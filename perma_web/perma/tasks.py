@@ -45,7 +45,7 @@ def get_link_query(link_guid):
     return Link.objects.filter(pk=link_guid)
 
 def get_storage_path(base_storage_path):
-    return os.path.join(settings.GENERATED_ASSETS_STORAGE, base_storage_path)
+    return os.path.join(settings.MEDIA_ROOT, base_storage_path)
 
 def create_storage_dir(storage_path):
     if not os.path.exists(storage_path):
@@ -206,7 +206,7 @@ This function is usually executed via an asynchronous Celery call
 """
     asset_query = get_asset_query(link_guid)
 
-    path_elements = [settings.GENERATED_ASSETS_STORAGE, base_storage_path, 'source', 'index.html']
+    path_elements = [settings.MEDIA_ROOT, base_storage_path, 'source', 'index.html']
 
     directory = os.path.sep.join(path_elements[:3])
 
@@ -419,7 +419,7 @@ def get_nigthly_stats():
     now = datetime.datetime.now() - datetime.timedelta(days=1)
     time_tuple = now.timetuple()
     path_elements = [str(time_tuple.tm_year), str(time_tuple.tm_mon), str(time_tuple.tm_mday)]
-    disk_path = settings.GENERATED_ASSETS_STORAGE + '/' + os.path.sep.join(path_elements)
+    disk_path = settings.MEDIA_ROOT + '/' + os.path.sep.join(path_elements)
     
     # Get disk usage total
     # If we start deleting unvested archives, we'll have to do some periodic corrrections here (this is only additive)

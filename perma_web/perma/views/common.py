@@ -75,14 +75,14 @@ def cdx(request):
     # get warc file
     for asset in link.assets.all():
         if '.warc' in asset.warc_capture:
-            warc_path = os.path.join(settings.GENERATED_ASSETS_STORAGE, asset.base_storage_path, asset.warc_capture)
+            warc_path = os.path.join(settings.MEDIA_ROOT, asset.base_storage_path, asset.warc_capture)
             break
     else:
         if settings.USE_WARC_ARCHIVE:
             print "COULDN'T FIND WARC"
             raise Http404 # no .warc file -- do something to handle this
         else:
-            warc_path = os.path.join(settings.GENERATED_ASSETS_STORAGE, asset.base_storage_path, "archive.warc.gz")
+            warc_path = os.path.join(settings.MEDIA_ROOT, asset.base_storage_path, "archive.warc.gz")
 
     # get cdx file
     cdx_path = warc_path.replace('.gz', '').replace('.warc', '.cdx')
@@ -180,7 +180,7 @@ def single_linky(request, guid):
         text_capture = None
         if serve_type == 'text':
             if asset.text_capture and asset.text_capture != 'pending':
-                path_elements = [settings.GENERATED_ASSETS_STORAGE, asset.base_storage_path, asset.text_capture]
+                path_elements = [settings.MEDIA_ROOT, asset.base_storage_path, asset.text_capture]
                 file_path = os.path.sep.join(path_elements)
                 with open(file_path, 'r') as f:
                     text_capture = f.read()
