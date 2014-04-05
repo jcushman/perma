@@ -13,10 +13,10 @@ LOGGING['handlers']['default']['filename'] = os.path.join(LOGGING_DIR, 'django.l
 PHANTOMJS_LOG = os.path.join(LOGGING_DIR, 'phantomjs.log')
 
 # user-generated files
-MEDIA_ROOT = os.path.join(SERVICES_DIR, 'django/generated_assets')
+MEDIA_ROOT = os.path.join(SERVICES_DIR, 'django/generated_assets/')
 
 # static files
-STATIC_ROOT = os.path.join(SERVICES_DIR, 'django/static_assets')
+STATIC_ROOT = os.path.join(SERVICES_DIR, 'django/static_assets/')
 
 # print email to console
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

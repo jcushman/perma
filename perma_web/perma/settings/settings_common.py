@@ -86,16 +86,12 @@ ROOT_URLCONF = 'perma.urls'
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = 'perma.wsgi.application'
 
-TEMPLATE_DIRS = (
-    # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
-    # Always use forward slashes, even on Windows.
-    # Don't forget to use absolute paths, not relative paths.
-)
-
 TEMPLATE_CONTEXT_PROCESSORS = (
     "perma.analytics.analytics",
     'django.contrib.messages.context_processors.messages',
-    'django.core.context_processors.request',
+    'django.core.context_processors.request',   # include `request` in templates
+    'django.core.context_processors.static',    # include `STATIC_URL` in templates
+    'django.core.context_processors.media',     # include `MEDIA_URL` in templates
 )
 
 INSTALLED_APPS = (

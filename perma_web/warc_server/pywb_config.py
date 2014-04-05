@@ -1,6 +1,8 @@
 import os
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "perma.settings")
 from django.conf import settings
+from django.core.files.storage import default_storage
 
 from pywb.framework import archivalrouter
 from pywb.rewrite.wburl import WbUrl
@@ -43,9 +45,17 @@ def create_perma_pywb_app():
     # enable lxml parsing if available
     use_lxml_parser()
 
+    # get root storage location for warcs
+    try:
+        # access via local disk if we can
+        archive_path = 'file://' + default_storage.path('') + '/'
+    except NotImplementedError:
+        # else access via url
+        archive_path = default_storage.url('') + '/'
+
     # use util func to create the handler
     wb_handler = create_wb_handler(index_reader,
-                                   dict(archive_paths=['file://'],
+                                   dict(archive_paths=[archive_path],
                                         wb_handler_class=Handler,
                                         buffer_response=True,
                                         redir_to_exact=False),
