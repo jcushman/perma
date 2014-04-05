@@ -11,6 +11,7 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.common.proxy import ProxyType
+from selenium.webdriver.support import ui
 import simplejson
 import datetime
 import smhasher
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 ROBOTS_TXT_TIMEOUT = 30 # seconds to wait before giving up on robots.txt
 PAGE_LOAD_TIMEOUT = 60 # seconds to wait before proceeding as though onLoad event fired
+ELEMENT_DISCOVERY_TIMEOUT = 2 # seconds before PhantomJS gives up running a DOM request (should be instant, assuming page is loaded)
 AFTER_LOAD_TIMEOUT = 60 # seconds to allow page to keep loading additional resources after onLoad event fires
 
 ### HELPERS ###
@@ -78,13 +80,9 @@ def get_browser(user_agent, proxy_address, cert_path):
             "--ssl-certificates-path=%s" % cert_path,
             "--ignore-ssl-errors=true",],
         service_log_path=settings.PHANTOMJS_LOG)
+    browser.implicitly_wait(ELEMENT_DISCOVERY_TIMEOUT)
     browser.set_page_load_timeout(ROBOTS_TXT_TIMEOUT)
     return browser
-
-def get_request_log(browser):
-    log = browser.get_log('har')  # get http access log
-    log_entries = json.loads(log[0]['message'])['log']['entries']
-    return log_entries
 
 
 ### TASKS ##
@@ -178,21 +176,20 @@ def proxy_capture(self, link_guid, target_url, base_storage_path ,user_agent='')
     browser.set_window_size(1024, 800)
     page_load_thread = threading.Thread(target=browser.get, args=(target_url,))  # returns after onload
     page_load_thread.start()
-    start_time = time.time()
-    while page_load_thread.is_alive():
-        time.sleep(.5)
-        if time.time() - start_time > PAGE_LOAD_TIMEOUT:
-            print "Waited 60 seconds for onLoad event -- giving up."
-            if not unique_responses:
-                # if nothing at all has loaded yet, give up on the capture
-                if settings.USE_WARC_ARCHIVE:
-                    asset_query.update(warc_capture='failed', image_capture='failed')
-                else:
-                    asset_query.update(image_capture='failed')
-                return
+    page_load_thread.join(PAGE_LOAD_TIMEOUT)
+    if page_load_thread.is_alive():
+        print "Waited 60 seconds for onLoad event -- giving up."
+        if not unique_responses:
+            # if nothing at all has loaded yet, give up on the capture
+            if settings.USE_WARC_ARCHIVE:
+                asset_query.update(warc_capture='failed', image_capture='failed')
             else:
-                # something has loaded (the HTML), so we'll try proceeding with the capture
-                break
+                asset_query.update(image_capture='failed')
+            browser.quit()  # shut down phantomjs
+            robots_txt_thread.join()  # wait until robots thread is done
+            warcprox_controller.stop.set()  # send signal to shut down warc thread
+            warcprox_thread.join()
+            return
     print "Finished fetching url."
 
     # get page title
@@ -201,20 +198,24 @@ def proxy_capture(self, link_guid, target_url, base_storage_path ,user_agent='')
         link_query.update(submitted_title=browser.title)
 
     # check meta tags
+    # (run this in a thread and give it long enough to find the tags, but then let other stuff proceed)
     print "Checking meta tags."
-    meta_tag = None
-    try:
-        # first look for <meta name='perma'>
-        meta_tag = browser.find_element_by_xpath("//meta[@name='perma']")
-    except NoSuchElementException:
+    def meta_thread():
+        meta_tag = None
         try:
-            # else look for <meta name='robots'>
-            meta_tag = browser.find_element_by_xpath("//meta[@name='robots']")
+            # first look for <meta name='perma'>
+            meta_tag = browser.find_element_by_xpath("//meta[@name='perma']")
         except NoSuchElementException:
-            pass
-    print meta_tag
-    if meta_tag and 'noarchive' in meta_tag.get_attribute("content"):
-        link_query.update(dark_archived_robots_txt_blocked=True)
+            try:
+                # else look for <meta name='robots'>
+                meta_tag = browser.find_element_by_xpath("//meta[@name='robots']")
+            except NoSuchElementException:
+                pass
+        if meta_tag and 'noarchive' in meta_tag.get_attribute("content"):
+            link_query.update(dark_archived_robots_txt_blocked=True)
+    meta_thread = threading.Thread(target=meta_thread)
+    meta_thread.start()
+    meta_thread.join(ELEMENT_DISCOVERY_TIMEOUT*2)
 
     # save preliminary screenshot immediately, and an updated version later
     # (we want to return results quickly, but also give javascript time to render final results)
@@ -241,6 +242,7 @@ def proxy_capture(self, link_guid, target_url, base_storage_path ,user_agent='')
     # teardown:
     browser.quit()  # shut down phantomjs
     robots_txt_thread.join()  # wait until robots thread is done
+    meta_thread.join()  # wait until meta thread is done
     warcprox_controller.stop.set()  # send signal to shut down warc thread
     warcprox_thread.join()  # wait until warcprox thread is done writing out warc
 

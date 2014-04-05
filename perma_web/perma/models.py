@@ -278,6 +278,14 @@ class Asset(models.Model):
             return u"%s/%s" % (self.link.guid, self.link.submitted_url)
         return self.base_url(self.warc_capture)
 
+    def warc_download_url(self):
+        if settings.USE_WARC_ARCHIVE:
+            if '.warc' in self.warc_capture:
+                return self.base_url(self.warc_capture)
+            return None
+        else:
+            return self.base_url('archive.warc.gz')
+
     def pdf_url(self):
         return self.base_url(self.pdf_capture)
 

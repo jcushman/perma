@@ -24,7 +24,7 @@ from perma.utils import can_be_mirrored
 
 
 logger = logging.getLogger(__name__)
-valid_serve_types = ['live', 'image','pdf','source','text']
+valid_serve_types = ['live', 'image','pdf','source','text','warc','warc_download']
 
 
 class DirectTemplateView(TemplateView):
@@ -67,11 +67,11 @@ def cdx(request):
     """
     # find requested link and url
     try:
-        link = Link.objects.select_related().get(pk=request.POST.get('guid'))
+        link = Link.objects.select_related().get(pk=request.GET.get('guid'))
     except Link.DoesNotExist:
         print "COULDN'T FIND LINK"
         raise Http404
-    url = request.POST.get('url', link.submitted_url)
+    url = request.GET.get('url', link.submitted_url)
 
     # get warc file
     for asset in link.assets.all():
@@ -141,10 +141,6 @@ def single_linky(request, guid):
     context = None
 
     # User requested archive type
-    if not settings.USE_WARC_ARCHIVE:
-        valid_serve_types = ['image','pdf','source','text', 'warc']
-    else:
-        global valid_serve_types
     serve_type = request.GET.get('type','live')
     if not serve_type in valid_serve_types:
         serve_type = 'live'
@@ -218,6 +214,10 @@ def single_linky(request, guid):
         context['asset'] = serializers.serialize("json", [context['asset']], fields=['text_capture','image_capture','pdf_capture','warc_capture','base_storage_path'])
         context['linky'] = serializers.serialize("json", [context['linky']], fields=['dark_archived','guid','vested','view_count','creation_timestamp','submitted_url','submitted_title'])
         return HttpResponse(json.dumps(context), content_type="application/json")
+
+    if serve_type == 'warc_download':
+        if context['asset'].warc_download_url():
+            return HttpResponseRedirect(context.get('MEDIA_URL', settings.MEDIA_URL)+context['asset'].warc_download_url())
 
     context['USE_WARC_ARCHIVE'] = settings.USE_WARC_ARCHIVE
     return render_to_response('single-link.html', context, RequestContext(request))

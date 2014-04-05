@@ -54,6 +54,10 @@ def test():
     """
     local("coverage run --source='.' --omit='lib/*,perma/migrations/*,*/tests/*' manage.py test perma")
 
+def logs(log_dir=os.path.join(settings.PROJECT_ROOT, '../services/logs/')):
+    """ Tail all logs. """
+    local("tail -f %s/*" % log_dir)
+
 def init_dev_db():
     """
         Run syncdb, South migrate, and import fixtures for new dev database.
