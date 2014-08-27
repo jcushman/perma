@@ -114,19 +114,27 @@ urlpatterns = patterns('perma.views',
 #    url(r'^manage/activity/?$', 'manage.activity', name='manage_activity'),
 
     url(r'^cdx$', 'common.cdx', name='cdx'),
-
-    # Our Perma ID catchall
-    url(r'^%s/?$' % r'(?P<guid>[^\./]+)', 'common.single_link_header', name='single_link_header'),
-    
 )
 
-# debug-only serving of static and media assets
+# experimental password update protocol
+if settings.PASSWORD_UPDATE_ENDPOINT_ENABLED:
+    urlpatterns += patterns('perma.views',
+                            url(r'^password/password_update_endpoint$', 'user_management.password_update_endpoint', name='user_management_password_update_endpoint'),
+                            url(r'^.well-known/password-policy$', 'user_management.password_update_advertiser'),
+                            )
+
+    # debug-only serving of static and media assets
 if settings.DEBUG:
     from django.contrib.staticfiles.views import serve as static_view
     from django.views.static import serve as media_view
     from mirroring.utils import may_be_mirrored
     urlpatterns += static(settings.STATIC_URL, may_be_mirrored(static_view)) + \
                    static(settings.MEDIA_URL, may_be_mirrored(media_view), document_root=settings.MEDIA_ROOT)
+
+# Our Perma ID catchall
+urlpatterns += patterns('perma.views',
+    url(r'^%s/?$' % r'(?P<guid>[^\./]+)', 'common.single_link_header', name='single_link_header'),
+    )
 
 handler404 = 'perma.views.common.server_error_404'
 handler500 = 'perma.views.common.server_error_500'

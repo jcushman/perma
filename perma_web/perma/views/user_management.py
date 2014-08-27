@@ -1031,3 +1031,46 @@ http://%s%s
         settings.DEFAULT_FROM_EMAIL,
         [user.email], fail_silently=False
     )
+
+
+if settings.PASSWORD_UPDATE_ENDPOINT_ENABLED:
+    from django.views.decorators.debug import sensitive_post_parameters
+    from django.views.decorators.csrf import csrf_exempt
+    from django.http import HttpResponseNotAllowed, HttpResponseBadRequest
+    from django.contrib.auth import authenticate
+
+    @sensitive_post_parameters()
+    @csrf_exempt
+    @ratelimit(method='POST', rate=settings.REGISTER_MINUTE_LIMIT, block=True, ip=False,
+               keys=lambda req: req.META.get('HTTP_X_FORWARDED_FOR', req.META['REMOTE_ADDR']))
+    def password_update_endpoint(request):
+        # require post
+        if not request.POST:
+            return HttpResponseNotAllowed(permitted_methods=['POST'])
+        post_data = request.POST
+
+        # check for required params
+        for required_parameter in ('username', 'password', 'new_password'):
+            if required_parameter not in post_data:
+                return HttpResponseBadRequest()
+
+        # authenticate user
+        user = authenticate(username=post_data['username'], password=post_data['password'])
+        if not user:
+            return HttpResponseBadRequest(status=401)  # Unauthorized
+
+        # change password
+        user.set_password(post_data['new_password'])
+        user.save()
+        return HttpResponse()  # OK
+
+    def password_update_advertiser(request):
+        return HttpResponse("""
+endpoint: %s
+rules:
+  min_length: 8
+  required_ranges:
+    - a-z
+    - A-Z
+    - 0-9
+        """.strip() % reverse('user_management_password_update_endpoint'), content_type='text/plain')
