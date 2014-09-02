@@ -305,7 +305,7 @@ def set_up_folders():
 
     # attach links to root dirs
     for link in Link.objects.all():
-        if not link.folders.accessible_to(link.created_by).exists():
+        if link.created_by and not link.folders.accessible_to(link.created_by).exists():
             link.folders.add(link.created_by.root_folder)
         if link.vested and not link.folders.accessible_to(link.vested_by_editor).exists():
             link.folders.add(link.vested_by_editor.root_folder)

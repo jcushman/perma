@@ -229,7 +229,7 @@ def link_browser(request, path):
         # get current folder
         path_parts = path.split("/")
         for i, path_part in enumerate(path_parts):
-            folder_breadcrumbs.append([current_folder, '' if current_folder.is_root_folder else u"/".join(path_parts[:i+1])])
+            folder_breadcrumbs.append([current_folder, '' if current_folder.is_root_folder else u"/".join(path_parts[:i])])
             try:
                 if i==0 and path_part.startswith('-'):
                     current_folder = Folder.objects.get(is_shared_folder=True, slug=path_part[1:], vesting_org__users=user)
