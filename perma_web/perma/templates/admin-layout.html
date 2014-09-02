@@ -17,12 +17,7 @@
 
             <li{% if this_page == 'create_link' %} class="active"{% endif %}><a href="{% url 'create_link' %}" id="dashboard-add">Create</a></li>
 
-            <li{% if this_page == 'created_links' %} class="active"{% endif %}><a href="{% url 'created_links' %}" id="dashboard-library">Links</a></li>
-
-            <!-- Vested links -->
-            {% if request.user|has_group:'registrar_user,registry_user,vesting_user,vesting_user' %}
-                <li{% if this_page == 'vested_links' %} class="active"{% endif %}><a href="{% url 'vested_links' %}" id="dashboard-vested">Vested Links</a></li>
-            {% endif %}<!-- FIXME change icon -->
+            <li{% if this_page == 'link_browser' %} class="active"{% endif %}><a href="{% url 'link_browser' %}" id="dashboard-library">Links</a></li>
 
             {% comment %}
             <!-- Batch convert -->

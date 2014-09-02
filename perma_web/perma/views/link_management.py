@@ -5,6 +5,7 @@ import socket
 from urlparse import urlparse
 from mimetypes import MimeTypes
 from celery import chain
+from django.db import transaction
 from netaddr import IPAddress, IPNetwork
 import requests
 from mptt.exceptions import InvalidMove
@@ -18,13 +19,13 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpResponseBadRequest, Http404, HttpResponseRedirect
-from django.shortcuts import HttpResponse, render_to_response, get_object_or_404
+from django.shortcuts import HttpResponse, render_to_response, get_object_or_404, render
 from django.template import RequestContext
 
 from mirroring.tasks import compress_link_assets, poke_mirrors
 
 from ..forms import UploadFileForm
-from ..models import Link, Asset, Folder
+from ..models import Link, Asset, Folder, FolderException
 from ..tasks import get_pdf, proxy_capture, upload_to_internet_archive
 from ..utils import require_group, run_task
 
@@ -82,7 +83,7 @@ def create_link(request):
                 timeout=HEADER_CHECK_TIMEOUT
             ).headers
         except (requests.ConnectionError, requests.Timeout):
-            return HttpResponse("Couldn't load URL.", status=400)
+            return HttpResponseBadRequest("Couldn't load URL.")
         try:
             if int(target_url_headers.get('content-length', 0)) > 1024 * 1024 * 100:
                 return HttpResponseBadRequest("Target page is too large (max size 1MB).")
@@ -90,9 +91,17 @@ def create_link(request):
             # Weird -- content-length header wasn't an integer. Carry on.
             pass
 
+        # get destination folder
+        destination_folder = request.user.root_folder
+        if request.POST.get('folder'):
+            try:
+                destination_folder = Folder.objects.accessible_to(request.user).get(pk=request.POST['folder'])
+            except Folder.DoesNotExist:
+                pass
+
         # Create link.
         link = Link(submitted_url=target_url, created_by=request.user, submitted_title=target_title)
-        link.save()
+        link.save(initial_folder=destination_folder)
 
         guid = link.guid
         asset = Asset(link=link)
@@ -134,9 +143,10 @@ def create_link(request):
 
         return HttpResponse(json.dumps(response_object), content_type="application/json", status=201) # '201 Created' status
 
-    return render_to_response('user_management/create-link.html',
-                              {'this_page': 'create_link', 'user': request.user},
-                              RequestContext(request))
+    return render(request, 'user_management/create-link.html', {
+        'this_page': 'create_link',
+        'all_folder_trees': request.user.all_folder_trees(),
+    })
 
 
 def validate_upload_file(upload, mime_type):
@@ -201,115 +211,115 @@ def upload_file(request):
 ###### LINK BROWSING ######
 
 @login_required
-def created_links(request, path):
-    """
-    Anyone with an account can view the linky links they've created
-    """
-    return link_browser(request, path,
-                        link_filter={'created_by':request.user, 'user_deleted':False},
-                        this_page='created_links',
-                        verb='created')
+def link_browser(request, path):
+    """ Display links created by or vested by user, or attached to user's vesting org. """
 
-
-@require_group(['registrar_user', 'registry_user', 'vesting_user'])
-def vested_links(request, path):
-    """
-    Linky admins and registrar members and vesting members can vest links
-    """
-    return link_browser(request, path,
-                        link_filter={'vested_by_editor': request.user, 'user_deleted':False},
-                        this_page='vested_links',
-                        verb='vested')
-
-
-def link_browser(request, path, link_filter, this_page, verb):
-    """ Display a set of links with the given filter (created by or vested by user). """
+    # helper vars
+    user = request.user
+    vesting_org = user.vesting_org
+    root_folder = user.root_folder
+    folder_access_filter = Folder.objects.user_access_filter(user)
+    link_access_filter = Link.objects.user_access_filter(user)
 
     # find current folder based on path
-    current_folder = None
     folder_breadcrumbs = []
+    path = path.strip("/") if path else ''
+    current_folder = root_folder
     if path:
-        path = path.strip("/")
-        if path:
-            # get current folder
-            folder_slugs = path.split("/")
-            current_folder = get_object_or_404(Folder,slug=folder_slugs[-1],created_by=request.user)
-
-            # check ancestor slugs and generate breadcrumbs
-            ancestors = current_folder.get_ancestors()
-            for i, ancestor in enumerate(ancestors):
-                if folder_slugs[i] != ancestor.slug:
-                    raise Http404
-                folder_breadcrumbs.append([ancestor, u"/".join(folder_slugs[:i+1])])
+        # get current folder
+        path_parts = path.split("/")
+        for i, path_part in enumerate(path_parts):
+            folder_breadcrumbs.append([current_folder, '' if current_folder.is_root_folder else u"/".join(path_parts[:i+1])])
+            try:
+                if i==0 and path_part.startswith('-'):
+                    current_folder = Folder.objects.get(is_shared_folder=True, slug=path_part[1:], vesting_org__users=user)
+                else:
+                    current_folder = current_folder.get_children().get(slug=path_part)
+            except Folder.DoesNotExist:
+                raise Http404
 
     # make sure path has leading and trailing slashes, or is just one slash if empty
     path = u"/%s/" % path if path else "/"
 
     # handle forms
     if request.POST:
+        class BadRequest(Exception):
+            pass
 
-        # new folder
-        if 'new_folder_submit' in request.POST:
-            if 'new_folder_name' in request.POST:
-                Folder(name=request.POST['new_folder_name'], created_by=request.user, parent=current_folder).save()
+        out = {'success': 1}
 
-        # move link
-        elif 'move_selected_items_to' in request.POST:
-            if request.POST['move_selected_items_to'] == 'ROOT':
-                target_folder=None
-            else:
-                target_folder = get_object_or_404(Folder, created_by=request.user, pk=request.POST['move_selected_items_to'])
-            for link_id in request.POST.getlist('links'):
-                link = get_object_or_404(Link, pk=link_id, **link_filter)
-                link.move_to_folder_for_user(target_folder, request.user)
-            for folder_id in request.POST.getlist('folders'):
-                folder = get_object_or_404(Folder, pk=folder_id, created_by=request.user)
-                folder.parent=target_folder
-                try:
-                    folder.save()
-                except InvalidMove:
-                    # can't move a folder under itself
-                    continue
-            if request.is_ajax():
-                return HttpResponse(json.dumps({'success': 1}), content_type="application/json")
+        # we wrap all the edits in a try/except and a transaction, so we can roll back everything if we hit an error
+        try:
+            with transaction.atomic():
+                action = request.POST.get('action')
 
-        elif request.is_ajax():
-            posted_data = json.loads(request.body)
-            out = {'success': 1}
+                # move link
+                if 'move_selected_items_to' in request.POST:
+                    # get destination folder
+                    destination_folder = get_object_or_404(Folder, folder_access_filter, pk=request.POST['move_selected_items_to'])
 
-            # rename folder
-            if posted_data['action'] == 'rename_folder':
-                current_folder.name = posted_data['name']
-                current_folder.save()
+                    # move links
+                    for link_id in request.POST.getlist('links'):
+                        link = get_object_or_404(Link, link_access_filter, pk=link_id)
+                        if link.vested and link.vesting_org!=destination_folder.vesting_org:
+                            raise BadRequest("Can't move vested link out of organization's shared folder.")
+                        link.move_to_folder_for_user(destination_folder, user)
 
-            # delete folder
-            elif posted_data['action'] == 'delete_folder':
-                if current_folder.is_empty():
+                    # move folders
+                    for folder_id in request.POST.getlist('folders'):
+                        folder = get_object_or_404(Folder, folder_access_filter, pk=folder_id)
+                        try:
+                            folder.move_to_folder(destination_folder)
+                        except FolderException as e:
+                            raise BadRequest(e.message)
+
+                # new folder
+                elif action == 'new_folder':
+                    Folder(name=request.POST['new_folder_name'].strip(), parent=current_folder, created_by=user).save()
+
+                # rename folder
+                elif action == 'rename_folder':
+                    if current_folder.is_shared_folder or current_folder.is_root_folder:
+                        raise BadRequest("Not a valid action for this folder.")
+
+                    current_folder.name = request.POST['name']
+                    current_folder.set_slug()
+                    current_folder.save()
+
+                # delete folder
+                elif action == 'delete_folder':
+                    if current_folder.is_shared_folder or current_folder.is_root_folder:
+                        raise BadRequest( "Not a valid action for this folder.")
+                    if not current_folder.is_empty():
+                        raise BadRequest("Folders can only be deleted if they are empty.")
                     current_folder.delete()
-                else:
-                    out = {'error':"Folders can only be deleted if they are empty."}
 
-            # save notes
-            elif posted_data['action'] == 'save_notes':
-                link = get_object_or_404(Link, pk=posted_data['link_id'], **link_filter)
-                link.notes = posted_data['notes']
-                link.save()
+                # save notes
+                elif action == 'save_notes':
+                    link = get_object_or_404(Link, link_access_filter, pk=request.POST['link_id'])
+                    link.notes = request.POST['notes']
+                    link.save()
 
-            # save title change
-            elif posted_data['action'] == 'save_title':
-                link = get_object_or_404(Link, pk=posted_data['link_id'], **link_filter)
-                link.submitted_title = posted_data['title']
-                link.save()
+                # save title change
+                elif action == 'save_title':
+                    link = get_object_or_404(Link, link_access_filter, pk=request.POST['link_id'])
+                    link.submitted_title = request.POST['title']
+                    link.save()
 
-            return HttpResponse(json.dumps(out), content_type="application/json")
+        except BadRequest as e:
+            return HttpResponseBadRequest(e.message)
+
+        if request.is_ajax():
+            return HttpResponse(json.dumps({'success': 1}), content_type="application/json")
 
     # start with all links belonging to user
-    linky_links = Link.objects.filter(**link_filter)
+    links = Link.objects.accessible_to(user)
+    total_link_count = links.count()
 
     # handle search
     search_query = request.GET.get('q', None)
     if search_query:
-        linky_links = linky_links.filter(
+        links = links.filter(
             Q(guid__icontains=search_query) |
             Q(submitted_url__icontains=search_query) |
             Q(submitted_title__icontains=search_query) |
@@ -317,44 +327,33 @@ def link_browser(request, path, link_filter, this_page, verb):
         )
         if current_folder:
             # limit search to current folder
-            linky_links = linky_links.filter(folders__in=current_folder.get_descendants(include_self=True))
-
-    elif current_folder:
-        # limit links to current folder
-        linky_links = linky_links.filter(folders=current_folder)
+            links = links.filter(folders__in=current_folder.get_descendants(include_self=True))
 
     else:
-        # top level -- find links with no related folder for this user
-        linky_links = linky_links.exclude(folders__created_by=request.user)
+        # limit links to current folder
+        links = links.filter(folders=current_folder)
 
     # handle sorting
     DEFAULT_SORT = '-creation_timestamp'
     sort = request.GET.get('sort', DEFAULT_SORT)
     if sort not in valid_link_sorts:
         sort = DEFAULT_SORT
-    linky_links = linky_links.order_by(sort)
+    links = links.order_by(sort)
 
-    # handle pagination
-    # page = request.GET.get('page', 1)
-    # if page < 1:
-    #     page = 1
-    # paginator = Paginator(linky_links, 10)
-    # linky_links = paginator.page(page)
-
-    subfolders = list(Folder.objects.filter(created_by=request.user, parent=current_folder))
-    all_folders = Folder.objects.filter(created_by=request.user)
-    base_url = reverse(this_page)
-    link_count = Link.objects.filter(**link_filter).count()
-
-    context = {'linky_links': linky_links, 'link_count':link_count,
-               'sort': sort,
-               'search_query':search_query,
-               'search_placeholder':"Search %s" % (current_folder if current_folder else "links"),
-               'this_page': this_page, 'verb': verb,
-               'subfolders':subfolders, 'path':path, 'folder_breadcrumbs':folder_breadcrumbs,
-               'current_folder':current_folder,
-               'all_folders':all_folders,
-               'base_url':base_url}
+    context = {
+        'links': links,
+        'link_count':total_link_count,
+        'sort': sort,
+        'search_query':search_query,
+        'search_placeholder':"Search %s" % (current_folder if current_folder else "links"),
+        'this_page': 'link_browser',
+        'path':path,
+        'folder_breadcrumbs':folder_breadcrumbs,
+        'current_folder':current_folder,
+        'all_folder_trees':user.all_folder_trees(),
+        'base_url':reverse('link_browser'),
+        'root_folder':root_folder,
+    }
 
     context = RequestContext(request, context)
 
@@ -366,17 +365,34 @@ def link_browser(request, path, link_filter, this_page, verb):
 @require_group(['registrar_user', 'registry_user', 'vesting_user'])
 def vest_link(request, guid):
     link = get_object_or_404(Link, guid=guid)
-    if request.method == 'POST':
-        if not link.vested:
-            link.vested=True
-            link.vested_by_editor=request.user
-            link.vesting_org = request.user.vesting_org
-            link.vested_timestamp=datetime.now()
-            link.save()
-            run_task(poke_mirrors, link_guid=guid)
+    if request.method == 'POST' and not link.vested and request.user.vesting_org:
 
-            if settings.UPLOAD_TO_INTERNET_ARCHIVE:
-                run_task(upload_to_internet_archive, link_guid=guid)
+        # make sure this link is either already in a vesting org's shared folder, or user has told us to save to one
+        target_folder = None
+        if settings.SHARED_FOLDERS_ENABLED:
+            if request.POST.get('folder'):
+                target_folder = get_object_or_404(Folder, pk=request.POST['folder'], vesting_org=request.user.vesting_org)
+            if not target_folder and not link.folders.filter(vesting_org=request.user.vesting_org).exists():
+                return render(request, 'link-vest-confirm.html', {
+                    'folder_tree': request.user.vesting_org.shared_folder.get_descendants(include_self=True),
+                    'link': link,
+                })
+
+        # vest
+        link.vested=True
+        link.vested_by_editor=request.user
+        link.vesting_org = request.user.vesting_org
+        link.vested_timestamp=datetime.now()
+        link.save()
+
+        if target_folder:
+            link.move_to_folder_for_user(target_folder, request.user)
+
+        run_task(poke_mirrors, link_guid=guid)
+
+        if settings.UPLOAD_TO_INTERNET_ARCHIVE:
+            run_task(upload_to_internet_archive, link_guid=guid)
+
     return HttpResponseRedirect(reverse('single_link_header', args=[guid]))
     
     
@@ -390,8 +406,8 @@ def user_delete_link(request, guid):
             link.user_deleted_timestamp=datetime.now()
             link.save()
 
-        return HttpResponseRedirect(reverse('created_links'))
-    return render_to_response('link-delete-confirm.html', {'linky': link, 'asset': asset}, RequestContext(request))
+        return HttpResponseRedirect(reverse('link_browser'))
+    return render_to_response('link-delete-confirm.html', {'link': link, 'asset': asset}, RequestContext(request))
 
 
 @require_group('registry_user')
@@ -403,4 +419,4 @@ def dark_archive_link(request, guid):
             link.save()
             run_task(poke_mirrors, link_guid=guid)
         return HttpResponseRedirect(reverse('single_link_header', args=[guid]))
-    return render_to_response('dark-archive-link.html', {'linky': link}, RequestContext(request))
+    return render_to_response('dark-archive-link.html', {'link': link}, RequestContext(request))

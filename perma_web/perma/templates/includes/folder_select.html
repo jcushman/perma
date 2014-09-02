@@ -1,0 +1,18 @@
+{% load truncatesmart compressed has_group mptt_tags repeat %}
+
+<select name="folder">
+    {% if all_folder_trees %}
+        <option value="{{ request.user.root_folder.pk }}">home</option>
+        {% for tree in all_folder_trees %}
+            {% recursetree tree %}
+                <option value="{{ node.pk }}">{{ "&nbsp;&nbsp;"|repeat:node.display_level|safe }}- {{ node.name }}</option>
+                {% if not node.is_leaf_node %}{{ children }}{% endif %}
+            {% endrecursetree %}
+        {% endfor %}
+    {% elif folder_tree %}
+        {% recursetree folder_tree %}
+            <option value="{{ node.pk }}">{{ "&nbsp;&nbsp;"|repeat:node.display_level|safe }}- {{ node.name }}</option>
+            {% if not node.is_leaf_node %}{{ children }}{% endif %}
+        {% endrecursetree %}
+    {% endif %}
+</select>

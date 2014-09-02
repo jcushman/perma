@@ -1,7 +1,7 @@
 {% extends "admin-layout.html" %}
 {% load mptt_tags repeat local_datetime %}
 
-{% block title %} | {{ verb|capfirst }} Perma links{% endblock %}
+{% block title %} | Perma links{% endblock %}
 
 {% block scripts %}
     {{ block.super }}
@@ -13,15 +13,13 @@
 
 {% block content %}
 
-	<h3>Perma links {{ verb }} by you</h3>
+	<h3>Your Perma Links</h3>
 
     {% if path == "/" %}
         <p>
             {% if linky_links %}
-                    You've {{ verb }} {{ link_count }} link{{ link_count|pluralize }}.
-                    {% if verb == 'created' %}
-                        Vested links are marked with <span class="fancy-infinity">&infin;</span>.
-                    {% endif %}
+                You have {{ link_count }} link{{ link_count|pluralize }}.
+                Vested links are marked with <span class="fancy-infinity">&infin;</span>.
             {% else %}
                 You haven't saved any links yet.
             {% endif %}
@@ -36,44 +34,43 @@
         {% csrf_token %}
         <div id="new_folder_container">
             <button type="button" id="new_folder_show" class="btn btn-default"><span class="icon-folder-close-alt" style="font-size: large;"></span> New Folder</button>
-            {% if all_folders %}
+            {% if all_folder_trees %}
                 <div class="btn-group">
                     <button class="btn dropdown-toggle" data-toggle="dropdown">
                         Move selected items
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu">
-                        <li><button type="submit" name="move_selected_items_to" value="ROOT">home</button></li>
-                        {% recursetree all_folders %}
-
-                            <li><button type="submit" name="move_selected_items_to" value="{{ node.pk }}">&#9495; {{ node.name }}</button></li>
-                            {% if not node.is_leaf_node %}
-                                <ul>
-                                {{ children }}
-                                </ul>
-                            {% endif %}
-                        {% endrecursetree %}
+                        <li><button type="submit" name="move_selected_items_to" value="{{ root_folder.pk }}">home</button></li>
+                        {% for tree in all_folder_trees %}
+                            {% recursetree tree %}
+                                <li><button type="submit" name="move_selected_items_to" value="{{ node.pk }}">&#9495; {{ node.name }}</button></li>
+                                {% if not node.is_leaf_node %}
+                                    <ul>
+                                    {{ children }}
+                                    </ul>
+                                {% endif %}
+                            {% endrecursetree %}
+                        {% endfor %}
                     </ul>
                 </div>
             {% endif %}
         </div>
         <div id="new_folder_name_container" style="display:none">
             <input type="text" name="new_folder_name" id="new_folder_name" placeholder="New folder name" style="margin-bottom: 0;"/>
-            <input type="submit" name="new_folder_submit" id="new_folder_submit" value="Create" class="btn btn-default" disabled/>
+            <button type="submit" name="action" value="new_folder" id="new_folder_submit" class="btn btn-default" disabled>Create</button>
+{#             <input type="submit" name="new_folder_submit" id="new_folder_submit" value="Create" class="btn btn-default" disabled/> #}
             <input type="button" id="new_folder_cancel" value="Cancel" class="btn btn-default"/>
         </div>
 
 
         {### folder path breadcrumbs ###}
-        {% if current_folder %}
+        {% if not current_folder.is_root_folder %}
             <div class="folder-breadcrumbs">
                 <b>Current folder:</b>
-                <a href="{{ base_url }}">home</a> &gt;
-                {% if folder_breadcrumbs %}
-                    {% for folder, breadcrumb_path in folder_breadcrumbs %}
-                        <a href="{{ base_url }}/{{ breadcrumb_path }}">{{ folder.name }}</a> &gt;
-                    {% endfor %}
-                {% endif %}
+                {% for folder, breadcrumb_path in folder_breadcrumbs %}
+                    <a href="{{ base_url }}/{{ breadcrumb_path }}">{{ folder.name }}</a> &gt;
+                {% endfor %}
                 {{ current_folder.name }}
             </div>
         {% endif %}
@@ -81,7 +78,7 @@
         {% if search_query %}
             <p>
                 <em>
-                    Search results {% if current_folder %}in {{ current_folder }} folder{% endif %} for "{{ search_query }}".
+                    Search results {% if not current_folder.is_root_folder %}in {{ current_folder }} folder{% endif %} for "{{ search_query }}".
                     <a href="?q=">Clear search.</a>
                 </em>
             </p>
@@ -90,7 +87,7 @@
         <table class="vested-table">
             <thead>
                 <tr>
-                    <th colspan="3">{% if current_folder %}Subfolders{% else %}Folders{% endif %}</th>
+                    <th colspan="3">{% if not current_folder.is_root_folder %}Subfolders{% else %}Folders{% endif %}</th>
                     <th></th>
                     <th></th>
                     <th></th>
@@ -98,8 +95,8 @@
                 </tr>
             </thead>
             <tbody>
-                {% if path != "/" %}
-                    <tr class="folder-row" folder_id="{{ current_folder.parent_id|default:"ROOT" }}">
+                {% if not current_folder.is_root_folder %}
+                    <tr class="folder-row" folder_id="{% if current_folder.is_shared_folder %}{{ root_folder.pk }}{% else %}{{ current_folder.parent_id }}{% endif %}">
                         <td>
                         </td>
                         <td>
@@ -112,7 +109,7 @@
                         <td></td>
                     </tr>
                 {% endif %}
-                {% for folder in subfolders %}
+                {% for folder in current_folder.all_children %}
                     <tr class="folder-row" folder_id="{{ folder.pk }}">
                         <td>
                             <input type="checkbox" name="folders" value="{{ folder.pk }}" class="checkbox" id="checkbox-{{ folder.pk }}"/>
@@ -121,13 +118,13 @@
                             <span class="icon-folder-close-alt" style="font-size: large;"></span>
                         </td>
                         <td class="folder-name">
-                            <a href="{{ base_url }}{{ path }}{{ folder.slug }}">{{ folder.name }}</a>
+                            <a href="{{ base_url }}{{ path }}{% if folder.is_shared_folder %}-{% endif %}{{ folder.slug }}">{{ folder.name }}</a>
                         </td>
                         <td>
-                            <a href="#" class="rename">rename</a>
+                            {% if not folder.is_shared_folder %}<a href="#" class="rename">rename</a>{% endif %}
                         </td>
                         <td>
-                            <a href="#" class="delete">delete</a>
+                            {% if not folder.is_shared_folder %}<a href="#" class="delete">delete</a>{% endif %}
                         </td>
                     </tr>
                 {% endfor %}
@@ -146,12 +143,12 @@
                 </tr>
             </thead>
             <tbody>
-                {% for link in linky_links %}
+                {% for link in links %}
                     <tr class="link-row" link_id="{{ link.pk }}">
-                        <td>{% if all_folders %}
+                        <td>{% if all_folder_trees %}
                             <input type="checkbox" name="links" value="{{ link.pk }}" class="checkbox" id="checkbox-{{ link.pk }}"/>
                         {% endif %}</td>
-                        <td class="linky-abbr-vested">{% if link.vested and verb == 'created' %}<span class="fancy-infinity">&infin;</span>{% endif %}</td>
+                        <td class="linky-abbr-vested">{% if link.vested %}<span class="fancy-infinity">&infin;</span>{% endif %}</td>
                         <td class="linky-link">
                             <a class="orange" href="http://{{request.mirror_server_host}}/{{link.guid}}" target="_blank">http://{{request.mirror_server_host}}/{{link.guid}}</a><br/>
                             <a href="{{ link.submitted_url }}" target="_blank" class="original-link">{{ link.submitted_url|truncatechars:200 }}</a>
@@ -168,7 +165,13 @@
                     <tr class="link-details" {% if search_query in link.notes %}style="display:table-row"{% endif %}>
                         <td colspan="2"></td>
                         <td colspan="5">
-                            <div class="pull-right"><strong>Views:</strong> {{ link.view_count }}</div>
+                            <div class="pull-right">
+                                <div><strong>Views:</strong> {{ link.view_count }}</div>
+                                <div><strong>Created by:</strong> {{ link.created_by }}</div>
+                                {% if link.vested %}
+                                    <div><strong>Vested by:</strong> {{ link.vested_by_editor }}</div>
+                                {% endif %}
+                            </div>
                             <div>
                                 <strong>Notes:</strong> <span class="muted notes-save-status"></span><br/>
                                 <textarea>{{ link.notes }}</textarea><br/>
@@ -183,18 +186,18 @@
 	    </table>
 
         {% comment %}
-            {% if linky_links.paginator.num_pages > 1 %}
+            {% if links.paginator.num_pages > 1 %}
                 <div class="pagination">
                     <ul class="pagination">
-                        {% if linky_links.has_previous %}<li><a href="?page={{ linky_links.previous_page_number }}&sort={{ sort }}">&lt;</a></li>{% endif %}
-                        {% for i in linky_links.paginator.page_range %}
-                        {% ifequal i linky_links.number %}
+                        {% if links.has_previous %}<li><a href="?page={{ links.previous_page_number }}&sort={{ sort }}">&lt;</a></li>{% endif %}
+                        {% for i in links.paginator.page_range %}
+                        {% ifequal i links.number %}
                         <li class="active"><a href="">{{ i }}</a></li>
                         {% else %}
                         <li><a href="?page={{ i }}">{{ i }}</a></li>
                         {% endifequal %}
                         {% endfor %}
-                        {% if linky_links.has_next  %}<li><a href="?page={{ linky_links.next_page_number }}&sort={{ sort }}">&gt;</a></li>{% endif %}
+                        {% if links.has_next  %}<li><a href="?page={{ links.next_page_number }}&sort={{ sort }}">&gt;</a></li>{% endif %}
                     </ul>
                 </div>
             {% endif %}
