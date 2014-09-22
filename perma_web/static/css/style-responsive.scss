@@ -483,6 +483,12 @@ div #linker button {
     min-width: 70px;
 }
 
+div #linker .folders{
+    margin-right: 20%;
+    text-align: right;
+    margin-top: .5em;
+}
+
 section#home-description {
     background-color: #fff;
     padding: 35px 0 20px;
@@ -1895,7 +1901,7 @@ ul.navbar-nav.tabbed > li, ul.navbar-nav.tabbed > li a {
 	border-top-left-radius: 3px;
 	height:30px;
 	font-size:16px;
-	display:block
+	display:block;
 }
 
 .tab-styling {

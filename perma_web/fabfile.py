@@ -6,7 +6,6 @@ import tempfile
 from django.utils.crypto import get_random_string
 from fabric.api import *
 import subprocess
-from perma.models import LinkUser, Folder
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perma.settings')
 from django.conf import settings
@@ -53,7 +52,12 @@ def run(port="0.0.0.0:8000"):
     """
         Run django test server on open port, so it's accessible outside Vagrant.
     """
-    local("python manage.py runserver %s" % port)
+    try:
+        # use runserver_plus if installed
+        import django_extensions
+        local("python manage.py runserver_plus %s" % port)
+    except ImportError:
+        local("python manage.py runserver %s" % port)
 
 def test(apps="perma mirroring"):
     """
@@ -279,11 +283,57 @@ def heroku_push(app_name='perma', project_dir=os.path.join(settings.PROJECT_ROOT
     shutil.rmtree(dest_dir)
 
 
-# TEMP
-def create_my_links_folders():
-    """ One-time function to create My Links folders for migration. """
-    for user in LinkUser.objects.exclude(vesting_org=None):
-        user.create_my_links_folder()
+
+def set_up_folders():
+    """ One-time function for use during transition to shared folders. """
+    from perma.models import VestingOrg, LinkUser, Folder, Link
+
+    # create root dirs
+    for user in LinkUser.objects.all():
+        user.create_root_folder()
+
+    # create shared dirs
+    for vesting_org in VestingOrg.objects.all():
+        vesting_org.create_shared_folder()
+
+    # attach folders to root dirs
+    for folder in Folder.objects.all():
+        if not folder.parent and not folder.is_root_folder and not folder.is_shared_folder:
+            folder.parent = folder.created_by.root_folder
+        folder.owned_by = folder.created_by
+        folder.save()
+
+    # attach links to root dirs
+    for link in Link.objects.all():
+        if link.created_by and not link.folders.accessible_to(link.created_by).exists():
+            link.folders.add(link.created_by.root_folder)
+        if link.vested and not link.folders.accessible_to(link.vested_by_editor).exists():
+            link.folders.add(link.vested_by_editor.root_folder)
+
+def move_links_to_shared_folders():
+    """ One-time function for use during transition to shared folders. """
+    from django.db.models import Count
+    from perma.models import VestingOrg, Folder
+
+    if not settings.SHARED_FOLDERS_ENABLED:
+        print "WARNING: Set SHARED_FOLDERS_ENABLED=True, or moved links will no longer be visible!"
+
+    # move links for vesting users into shared folders
+    for vesting_org in VestingOrg.objects.all():
+        users = vesting_org.users.annotate(Count('vested_links'), Count('created_links'))
+        users_with_links = [user for user in users if user.vested_links__count or user.created_links__count]
+        for user in users_with_links:
+            if len(users_with_links)==1:
+                target_folder = vesting_org.shared_folder
+            else:
+                folder_name = "%s %s" % (user.first_name, user.last_name) if user.first_name or user.last_name else user.email.split('@')[0]
+                target_folder = Folder(name=folder_name.strip(), parent=vesting_org.shared_folder, created_by=user)
+                target_folder.save()
+            for link in user.root_folder.links.all():
+                link.move_to_folder_for_user(target_folder, user)
+            for folder in user.root_folder.get_children():
+                folder.move_to_folder(target_folder)
+
 
 
 try:

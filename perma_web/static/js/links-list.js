@@ -3,7 +3,14 @@ $(function(){
 
     // helpers
     function postJSON(url, data, callback, failureCallback){
-        return $.post(url, JSON.stringify(data), callback, 'json').fail(
+        return $.ajax({
+			url: url,
+			type: "POST",
+			dataType: 'json',
+			data: data,
+			success: callback,
+            traditional: true // use Django-style array serialization
+		}).fail(
             failureCallback || function(jqXHR) {
                 informUser(jqXHR.status == 400 && jqXHR.responseText ? jqXHR.responseText : "Error " + jqXHR.status, 'danger');
             }
@@ -149,9 +156,7 @@ $(function(){
         handleCheckboxClick();
 
         // draggable
-        table.find('tbody tr')
-            .not('tr:has(.folder-name:contains("My Links"))')  // TEMP
-            .draggable({
+        table.find('tbody tr').draggable({
             helper: "clone",
             cursorAt: { top: 10, left: 10 },
             start: function(event, ui ){
@@ -175,17 +180,11 @@ $(function(){
                 }else{
                     links.push(ui.draggable.attr('link_id'));
                 }
-                $.ajax({
-                    type: "POST",
-                    url: '#',
-                    data: {move_selected_items_to:$(this).attr('folder_id'),links:links,folders:folders},
-                    success: function(data){
+                postJSON(
+                    '#',
+                    {move_selected_items_to:$(this).attr('folder_id'),links:links,folders:folders},
+                    function(data){
                         ui.draggable.remove();
-                    },
-                    traditional: true // Django-style array serialization
-                }).fail(
-                    function(jqXHR) {
-                        informUser(jqXHR.status == 400 && jqXHR.responseText ? jqXHR.responseText : "Error " + jqXHR.status, 'danger');
                     }
                 );
             }
@@ -195,5 +194,8 @@ $(function(){
     if($('.folder-row').length){
         initializeFolders();
     }
+
+
+
 
 });
