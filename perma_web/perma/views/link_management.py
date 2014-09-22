@@ -216,7 +216,6 @@ def link_browser(request, path):
 
     # helper vars
     user = request.user
-    vesting_org = user.vesting_org
     root_folder = user.root_folder
     folder_access_filter = Folder.objects.user_access_filter(user)
     link_access_filter = Link.objects.user_access_filter(user)
@@ -358,6 +357,102 @@ def link_browser(request, path):
     context = RequestContext(request, context)
 
     return render_to_response('user_management/created-links.html', context)
+
+
+
+@login_required
+def folder_contents(request, folder_id):
+    # helper vars
+    user = request.user
+    root_folder = user.root_folder
+    folder_access_filter = Folder.objects.user_access_filter(user)
+    link_access_filter = Link.objects.user_access_filter(user)
+
+    current_folder = get_object_or_404(Folder, folder_access_filter, pk=folder_id)
+
+    # handle forms
+    if request.POST:
+        class BadRequest(Exception):
+            pass
+
+        out = {'success': 1}
+
+        # we wrap all the edits in a try/except and a transaction, so we can roll back everything if we hit an error
+        try:
+            with transaction.atomic():
+                action = request.POST.get('action')
+
+                # move items
+                if action == 'move_items':
+                    # move links
+                    for link_id in request.POST.getlist('links'):
+                        link = get_object_or_404(Link, link_access_filter, pk=link_id)
+                        if link.vested and link.vesting_org != current_folder.vesting_org:
+                            raise BadRequest("Can't move vested link out of organization's shared folder.")
+                        link.move_to_folder_for_user(current_folder, user)
+
+                    # move folders
+                    for folder_id in request.POST.getlist('folders'):
+                        folder = get_object_or_404(Folder, folder_access_filter, pk=folder_id)
+                        try:
+                            folder.move_to_folder(current_folder)
+                        except FolderException as e:
+                            raise BadRequest(e.message)
+
+                # new folder
+                elif action == 'new_folder':
+                    Folder(name=request.POST['new_folder_name'].strip(), parent=current_folder, created_by=user).save()
+
+                # rename folder
+                elif action == 'rename_folder':
+                    if current_folder.is_shared_folder or current_folder.is_root_folder:
+                        raise BadRequest("Not a valid action for this folder.")
+
+                    current_folder.name = request.POST['name']
+                    current_folder.set_slug()
+                    current_folder.save()
+
+                # delete folder
+                elif action == 'delete_folder':
+                    if current_folder.is_shared_folder or current_folder.is_root_folder:
+                        raise BadRequest("Not a valid action for this folder.")
+                    if not current_folder.is_empty():
+                        raise BadRequest("Folders can only be deleted if they are empty.")
+                    current_folder.delete()
+
+                # save notes
+                elif action == 'save_notes':
+                    link = get_object_or_404(Link, link_access_filter, pk=request.POST['link_id'])
+                    link.notes = request.POST['notes']
+                    link.save()
+
+                # save title change
+                elif action == 'save_title':
+                    link = get_object_or_404(Link, link_access_filter, pk=request.POST['link_id'])
+                    link.submitted_title = request.POST['title']
+                    link.save()
+
+                else:
+                    raise BadRequest("Action not recognized.")
+
+        except BadRequest as e:
+            return HttpResponseBadRequest(e.message)
+
+        if request.is_ajax():
+            return HttpResponse(json.dumps({'success': 1}), content_type="application/json")
+
+    links = Link.objects.accessible_to(request.user).filter(folders=current_folder)
+
+    # handle sorting
+    DEFAULT_SORT = '-creation_timestamp'
+    sort = request.GET.get('sort', DEFAULT_SORT)
+    if sort not in valid_link_sorts:
+        sort = DEFAULT_SORT
+    links = links.order_by(sort)
+
+    return render(request, 'user_management/includes/created-link-items.html', {
+        'links': links
+    })
 
 
 ###### link editing ######

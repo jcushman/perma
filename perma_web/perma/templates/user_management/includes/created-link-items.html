@@ -1,0 +1,37 @@
+{% load local_datetime %}
+{% for link in links %}
+    <tr class="link-row" link_id="{{ link.pk }}">
+        <td class="linky-abbr-vested">{% if link.vested %}<span class="fancy-infinity">&infin;</span>{% endif %}</td>
+        <td class="linky-link">
+            <a class="orange" href="http://{{request.mirror_server_host}}/{{link.guid}}" target="_blank">http://{{request.mirror_server_host}}/{{link.guid}}</a><br/>
+            <a href="{{ link.submitted_url }}" target="_blank" class="original-link">{{ link.submitted_url|truncatechars:200 }}</a>
+        </td>
+        <td class="linky-abbr-title">
+                <input type="text" name="input" value="{{ link.submitted_title }}"><br/>
+                <span class="muted title-save-status"></span><br/>
+        </td>
+
+        <td class="linky-abbr-date-time">{{ link.creation_timestamp|local_datetime:"M. j, Y" }}</td>
+        <td class="linky-abbr-date-time">{{ link.vested_timestamp|local_datetime:"M. j, Y" }}</td>
+        <td class="linky-details-link"><a href="#" class="details">details</a></td>
+    </tr>
+    <tr class="link-details" {% if search_query in link.notes %}style="display:table-row"{% endif %}>
+        <td colspan="2"></td>
+        <td colspan="5">
+            <div class="pull-right">
+                <div><strong>Views:</strong> {{ link.view_count }}</div>
+                <div><strong>Created by:</strong> {{ link.created_by }}</div>
+                {% if link.vested %}
+                    <div><strong>Vested by:</strong> {{ link.vested_by_editor }}</div>
+                {% endif %}
+            </div>
+            <div>
+                <strong>Notes:</strong> <span class="muted notes-save-status"></span><br/>
+                <textarea>{{ link.notes }}</textarea><br/>
+                <span class="muted">Notes are visible to users who create or vest a link, but not to visitors.</span>
+            </div>
+        </td>
+    </tr>
+{% empty %}
+    <tr><td></td><td colspan="4">No Perma links found.</td></tr>
+{% endfor %}
