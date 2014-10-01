@@ -100,6 +100,7 @@ PIPELINE_JS = {
             'js/jquery-ui-1.10.3.custom.min.js',
             'js/jquery.dotdotdot-1.5.9.min.js',
             'js/jquery.django-csrf.js',
+            'js/lib/jstree.min.js',
             'js/links-list.js',
         ),
         'output_filename': 'js/links-list-bundle.js',
@@ -365,3 +366,7 @@ INTERNET_ARCHIVE_SECRET_KEY = ''
 
 
 SHARED_FOLDERS_ENABLED = False
+
+# default vesting org for links vested by registry users
+# (once all links have a vesting org, maybe this can be deleted?)
+FALLBACK_VESTING_ORG_ID = 15

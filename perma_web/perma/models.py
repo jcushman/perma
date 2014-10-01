@@ -28,9 +28,40 @@ class Registrar(models.Model):
     name = models.CharField(max_length=400)
     email = models.EmailField(max_length=254)
     website = models.URLField(max_length=500)
+    default_vesting_org = models.OneToOneField('VestingOrg', blank=True, null=True, related_name='default_for_registrars')
+
+    def save(self, *args, **kwargs):
+        self.create_default_vesting_org(False)
+        super(Registrar, self).save(*args, **kwargs)
 
     def __unicode__(self):
         return self.name
+
+    def create_default_vesting_org(self, save=True):
+        """
+            Create a default vesting org for this registrar, if there isn't one.
+            Before creating a new one, we check if registrar has only a single vesting org,
+            or else one called "Default Vesting Organization",
+            and if so use that one.
+
+            NOTE: In theory registrars created from now on shouldn't need these checks, and they could be deleted.
+        """
+        if self.default_vesting_org:
+            return
+        vesting_orgs = list(self.vesting_orgs.all())
+        if len(vesting_orgs)==1:
+            vesting_org = vesting_orgs[0]
+        else:
+            for candidate_vesting_org in vesting_orgs:
+                if candidate_vesting_org.name == "Default Vesting Organization":
+                    vesting_org = candidate_vesting_org
+                    break
+            else:
+                vesting_org = VestingOrg(registrar=self, name="Default Vesting Organization")
+                vesting_org.save()
+        self.default_vesting_org = vesting_org
+        if save:
+            self.save()
 
 
 class VestingOrg(models.Model):
@@ -38,7 +69,7 @@ class VestingOrg(models.Model):
     This is generally a journal.
     """
     name = models.CharField(max_length=400)
-    registrar = models.ForeignKey(Registrar, null=True)
+    registrar = models.ForeignKey(Registrar, null=True, related_name='vesting_orgs')
     shared_folder = models.OneToOneField('Folder', blank=True, null=True)
 
     def __unicode__(self):
@@ -148,17 +179,18 @@ class LinkUser(AbstractBaseUser):
         """
             Get all folders for this user, including shared folders
         """
-        folder_tree = self.root_folder.get_descendants()
-        if not settings.SHARED_FOLDERS_ENABLED:
-            return [folder_tree] if folder_tree else []
-        return ([self.vesting_org.shared_folder.get_descendants(include_self=True)] if self.vesting_org else []) + \
-               ([folder_tree] if folder_tree else [])
+        return [self.root_folder.get_descendants(include_self=True)] + \
+               ([self.vesting_org.shared_folder.get_descendants(include_self=True)] if self.vesting_org else [])
 
     def create_root_folder(self):
         if self.root_folder:
             return
-        root_folder = Folder(name=u'Home', created_by=self, is_root_folder=True)
-        root_folder.save()
+        try:
+            # this branch only used during transition to root folders -- can be removed eventually
+            root_folder = Folder.objects.filter(created_by=self, name=u"My Links", parent=None)[0]
+        except IndexError:
+            root_folder = Folder(name=u'My Links', created_by=self, is_root_folder=True)
+            root_folder.save()
         self.root_folder = root_folder
         self.save()
 
@@ -241,6 +273,9 @@ class Folder(MPTTModel):
     def move_to_folder(self, destination_folder):
         if self.is_shared_folder:
             raise FolderException("Can't move vesting organization's shared folder.")
+
+        if self.is_root_folder:
+            raise FolderException("Can't move main folder.")
 
         if self.vesting_org and self.vesting_org != destination_folder.vesting_org and self.contained_links().filter(vested=True).exists():
             raise FolderException("Can't move folder with vested links out of organization's shared folder.")

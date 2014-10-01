@@ -1,0 +1,37 @@
+{% load local_datetime %}
+{% for link in links %}
+    <div class="row link-row" link_id="{{ link.pk }}">
+        <div class="col-sm-1">{% if link.vested %}<span class="fancy-infinity">&infin;</span>{% endif %}</div>
+        <div class="col-sm-5">{# <td class="linky-link">  #}
+            <a class="orange" href="http://{{request.mirror_server_host}}/{{link.guid}}" target="_blank">http://{{request.mirror_server_host}}/{{link.guid}}</a><br/>
+            <a href="{{ link.submitted_url }}" target="_blank" class="original-link">{{ link.submitted_url|truncatechars:200 }}</a><br/>
+            Created on {{ link.creation_timestamp|local_datetime:"M. j, Y" }}
+        </div>
+        <div class="col-sm-5">{# <td class="linky-abbr-title"> #}
+            <label for="link-title">Display title:</label>
+            <input type="text" name="input" id="link-title" class="form-control input-sm" value="{{ link.submitted_title }}">
+            <span class="muted title-save-status"></span>
+        </div>
+        <div class="col-sm-1">{# <td class="linky-details-link"> #}
+            <a href="#" class="details">details</a>
+        </div>
+    </div>
+
+    <div class="row link-details" {% if search_query in link.notes %}style="display:block"{% endif %}>
+        <div class="col-sm-6">
+            <strong>Notes:</strong> <span class="muted notes-save-status"></span><br/>
+            <textarea>{{ link.notes }}</textarea><br/>
+            <span class="muted">Notes are visible to users who create or vest a link, but not to visitors.</span>
+        </div>
+        <div class="col-sm-6">
+            <div><strong>Views:</strong> {{ link.view_count }}</div>
+            <div><strong>Created by:</strong> {{ link.created_by }}</div>
+            {% if link.vested %}
+                <div><strong>Vested by:</strong> {{ link.vested_by_editor }}</div>
+                <div><strong>Vested on:</strong> {{ link.vested_timestamp|local_datetime:"M. j, Y" }}</div>
+            {% endif %}
+        </div>
+    </div>
+{% empty %}
+    <tr><td></td><td colspan="4">No Perma links found.</td></tr>
+{% endfor %}

@@ -646,43 +646,88 @@ div.dashboard-blurb {
         text-align: center;
     }
 
-div#dashboard-container {
+#dashboard-container {
     overflow: hidden;
     margin-top: 20px;
     position: relative;
-}
 
-    div#dashboard-container ul#dashboard-tabs {
-        margin: 0 10px 50px 0;
+    > div {
+        padding: 0;
     }
 
-        div#dashboard-container ul#dashboard-tabs li img{
-        	width:30px;
+    #dashboard-tabs {
+        margin: 0 2em 50px 0;
+        @media (max-width: 767px) {
+            margin-bottom: 0;
         }
 
-            div#dashboard-container ul#dashboard-tabs li a {
+        li {
+            @media (max-width: 767px) {
+                margin: 0 1em 0 0;
+            }
+            img {
+                width: 30px;
+            }
+            h3 {
+                color: #999;
+                font-size: 14px;
+                margin: 15px 0 0 0;
+                padding: 0;
+            }
+            a {
                 background-image: url('../img/dashboard-icons.png');
                 background-repeat: no-repeat;
-                font-size: 18px;
+                font-size: 16px;
                 margin-bottom: 10px;
                 padding: 12px 10px 12px 50px;
+
+                &:hover {
+                    background-color: #efefef;
+                }
+
+                @media (max-width: 991px) {
+                    font-size: 0;
+                    min-height: 49px;
+                }
+                @media (max-width: 767px) {
+                    float: left;
+                    margin-right: 10px;
+                }
             }
-
-
-            div#dashboard-container ul#dashboard-tabs li a:hover {
-                background-color: #efefef;
-            }
-
-            div#dashboard-container ul#dashboard-tabs li.active a {
+            &.active a {
                 background-color: #efefef;
                 color: #333;
             }
+            &.dashboard-secondary a {
+                background: none;
+                font-size: 14px;
+                margin: 0;
+                padding: 5px 0 5px 51px;
 
-            div#dashboard-container ul#dashboard-tabs li.credits a { color: #fff; }
-            div#dashboard-container ul#dashboard-tabs li.credits-ok a { background-color: #090; }
-            div#dashboard-container ul#dashboard-tabs li.credits-low a { background-color: #f60; }
-            div#dashboard-container ul#dashboard-tabs li.credits-very-low a { background-color: #c33; }
-            div#dashboard-container ul#dashboard-tabs li.credits-empty a { background-color: #f00; }
+                @media (max-width: 991px) {
+                    padding-left:5px;
+                }
+            }
+            &.users-secondary {
+                display: none;
+            }
+            &.divider {
+                border-top: 1px solid #efefef;
+                height: 1px;
+            }
+
+        }
+    }
+
+    h3 {
+        margin-top: 0;
+    }
+
+    div.tab-content {
+        overflow: hidden;
+        min-height: 170px;
+    }
+}
 
             a#dashboard-add { background-position: 19px -16px; }
             a#dashboard-add:hover { background-position: -779px -16px; }
@@ -696,8 +741,6 @@ div#dashboard-container {
             a#dashboard-custom-domain:hover { background-position: -779px -214px; }
             a#dashboard-settings { background-position: 19px -266px; }
             a#dashboard-settings:hover { background-position: -779px -266px; }
-            a#dashboard-credits { background-position: 19px -314px; }
-            a#dashboard-credits:hover { background-position: -779px -314px; }
             a.dashboard-placeholder { background-position: 19px -364px; }
             a.dashboard-placeholder:hover { background-position: -779px -364px; }
             a#dashboard-vested { background-position: 19px -414px; }
@@ -705,35 +748,6 @@ div#dashboard-container {
             a#dashboard-users { background-position: 19px -497px; }
             a#dashboard-users:hover { background-position: -779px -497px; }
 
-        div#dashboard-container ul#dashboard-tabs li.divider {
-            border-top: 1px solid #efefef;
-            height: 1px;
-        }
-
-        div#dashboard-container ul#dashboard-tabs li h3 {
-            color: #999;
-            font-size: 16px;
-            margin: 15px 0 0 0;
-            padding: 0;
-        }
-
-        div#dashboard-container ul#dashboard-tabs li.dashboard-secondary {}
-
-            div#dashboard-container ul#dashboard-tabs li.dashboard-secondary a {
-                background: none;
-                font-size: 16px;
-                margin: 0;
-                padding: 5px 0 5px 51px;
-            }
-
-            div#dashboard-container ul#dashboard-tabs li.users-secondary {
-                display: none;
-            }
-
-    div#dashboard-container div.tab-content {
-        overflow: hidden;
-        min-height: 170px;
-    }
 
 div.dashboard-add-link {
     margin-top: -6px;
@@ -1588,37 +1602,22 @@ td {
     margin-bottom:1em;
 }
 
-.link-row.ui-draggable, .folder-row.ui-draggable {
+.link-row {
     cursor:move; /* fallback for IE */
     cursor: -moz-grab;
     cursor: -webkit-grab;
     cursor:grab;
 }
 
-.link-draggable-helper {
-    border:3px #4cae4c;
-    border-radius: 3px;
-    background:#e9e9e9;
-    width:400px;
-    z-index:100;
+.link-details{
+    display:none;
 }
 
-.link-draggable-helper a.original-link {
-	display:none;
-}
-
-body.dragging, .dragging .link-row.ui-draggable, .dragging .folder-row.ui-draggable {
+body.dragging, .dragging .link-row {
     cursor:move; /* fallback for IE */
     cursor: -moz-grabbing;
     cursor: -webkit-grabbing;
     cursor:grabbing;
-}
-.link-draggable-helper .linky-abbr-date-time,
-.link-draggable-helper .linky-details-link,
-.link-draggable-helper .checkbox,
-.link-draggable-helper .rename,
-.link-draggable-helper .delete{
-    display:none;
 }
 
 td.linky-abbr-title {
@@ -1967,11 +1966,6 @@ ul.nav.navbar-nav.tabbed {
 
 .navbar-collapse.collapse {
 
-}
-
-tr.link-details {
-	padding-left:20px;
-	background:#fff;
 }
 
 .br-correction {
@@ -2362,15 +2356,15 @@ p.orange {
 	a.btn.vest, a.btn.dashboard, input.btn.vest {
 		margin-left:0px;
 	}
-ul.vesting {
-	margin:0 auto;
-	width:375px;
-}
-ul.vesting li {
-	display:inline;
-	float:left;
-	margin:0 2px 5px 2px;
-}
+    ul.vesting {
+        margin:0 auto;
+        width:375px;
+    }
+    ul.vesting li {
+        display:inline;
+        float:left;
+        margin:0 2px 5px 2px;
+    }
 
 	.meta-data, .meta-data a {
 	overflow: hidden;

@@ -6,6 +6,7 @@ import tempfile
 from django.utils.crypto import get_random_string
 from fabric.api import *
 import subprocess
+from perma.models import Registrar, Link
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'perma.settings')
 from django.conf import settings
@@ -287,52 +288,79 @@ def heroku_push(app_name='perma', project_dir=os.path.join(settings.PROJECT_ROOT
 def set_up_folders():
     """ One-time function for use during transition to shared folders. """
     from perma.models import VestingOrg, LinkUser, Folder, Link
+    from django.db.models import F
 
-    # create root dirs
-    for user in LinkUser.objects.all():
+    print "Making sure each registrar has a default vesting org"
+    for registrar in Registrar.objects.filter(default_vesting_org=None):
+        registrar.create_default_vesting_org()
+
+    print "Making sure each link has a vesting org"
+    for link in Link.objects.filter(vested=True, vesting_org=None).select_related():
+        editor = link.vested_by_editor
+        if editor.vesting_org:
+            link.vesting_org = editor.vesting_org
+        elif editor.registrar:
+            link.vesting_org = editor.registrar.default_vesting_org
+        else:
+            link.vesting_org_id = settings.FALLBACK_VESTING_ORG_ID
+        link.save()
+
+    print "Making sure each user has a root dir (this will use My Links if it exists)"
+    for user in LinkUser.objects.filter(root_folder=None):
         user.create_root_folder()
 
-    # create shared dirs
-    for vesting_org in VestingOrg.objects.all():
+    print "Making sure each vesting org has a shared folder"
+    for vesting_org in VestingOrg.objects.filter(shared_folder=None):
         vesting_org.create_shared_folder()
 
-    # attach folders to root dirs
-    for folder in Folder.objects.all():
-        if not folder.parent and not folder.is_root_folder and not folder.is_shared_folder:
-            folder.parent = folder.created_by.root_folder
-        folder.owned_by = folder.created_by
-        folder.save()
+    print "Creating and caching target dir for each user's top-level links and folder"
+    fallback_vesting_org = VestingOrg.objects.get(id=settings.FALLBACK_VESTING_ORG_ID)
+    def get_subfolder(user, vesting_org_folder):
+        subfolder_name = "%s %s" % (user.first_name, user.last_name) if user.first_name or user.last_name else \
+            user.email.split('@')[0]
+        try:
+            subfolder = Folder.objects.filter(name=subfolder_name, parent=vesting_org_folder)[0]
+        except IndexError:
+            subfolder = Folder(name=subfolder_name, parent=vesting_org_folder)
+            subfolder.save()
+        return subfolder
+    user_folder_lookup = {}
+    for user in LinkUser.objects.all():
+        groups = user.groups.all()
 
-    # attach links to root dirs
+        vesting_org_folder = None
+        if groups:
+            group = groups[0]
+            if group.name == 'vesting_user':
+                vesting_org_folder = user.vesting_org.shared_folder
+            elif group.name == 'registrar_user':
+                vesting_org_folder = user.registrar.default_vesting_org.shared_folder
+            elif group.name == 'registry_user':
+                vesting_org_folder = fallback_vesting_org.shared_folder
+
+        if vesting_org_folder:
+            user_folder_lookup[user] = get_subfolder(user, vesting_org_folder)
+        else:
+            user_folder_lookup[user] = user.root_folder
+
+    print "Moving top-level folders to parent dirs"
+    Folder.objects.all().update(owned_by=F('created_by'))
+    for folder in Folder.objects.filter(parent=None, is_root_folder=False, is_shared_folder=False):
+        folder.move_to_folder(user_folder_lookup[folder.created_by])
+
+    print "Moving top-level links to parent dirs"
     for link in Link.objects.all():
+        # make sure link creator has link in a folder
         if link.created_by and not link.folders.accessible_to(link.created_by).exists():
-            link.folders.add(link.created_by.root_folder)
+            link.folders.add(user_folder_lookup[link.created_by])
+
+        # make sure link vester has link in a folder
         if link.vested and not link.folders.accessible_to(link.vested_by_editor).exists():
-            link.folders.add(link.vested_by_editor.root_folder)
-
-def move_links_to_shared_folders():
-    """ One-time function for use during transition to shared folders. """
-    from django.db.models import Count
-    from perma.models import VestingOrg, Folder
-
-    if not settings.SHARED_FOLDERS_ENABLED:
-        print "WARNING: Set SHARED_FOLDERS_ENABLED=True, or moved links will no longer be visible!"
-
-    # move links for vesting users into shared folders
-    for vesting_org in VestingOrg.objects.all():
-        users = vesting_org.users.annotate(Count('vested_links'), Count('created_links'))
-        users_with_links = [user for user in users if user.vested_links__count or user.created_links__count]
-        for user in users_with_links:
-            if len(users_with_links)==1:
-                target_folder = vesting_org.shared_folder
+            target_folder = user_folder_lookup[link.vested_by_editor]
+            if target_folder.vesting_org == link.vesting_org:
+                link.folders.add(target_folder)
             else:
-                folder_name = "%s %s" % (user.first_name, user.last_name) if user.first_name or user.last_name else user.email.split('@')[0]
-                target_folder = Folder(name=folder_name.strip(), parent=vesting_org.shared_folder, created_by=user)
-                target_folder.save()
-            for link in user.root_folder.links.all():
-                link.move_to_folder_for_user(target_folder, user)
-            for folder in user.root_folder.get_children():
-                folder.move_to_folder(target_folder)
+                link.folders.add(get_subfolder(link.vested_by_editor, link.vesting_org.shared_folder))
 
 
 
