@@ -72,7 +72,7 @@ def test(apps="perma mirroring"):
     ]
     local("coverage run --source='.' --omit='%s' manage.py test %s" % (",".join(excluded_files), apps))
 
-def test_sauce(target_host="127.0.0.1:8000"):
+def test_sauce(target_host="127.0.0.1:8000", target_browsers=''):
     """
         Run Sauce browser tests. If target_host is localhost, first run sauce_tunnel.
     """
@@ -80,6 +80,7 @@ def test_sauce(target_host="127.0.0.1:8000"):
     os.environ.setdefault('SAUCE_ACCESS_KEY', settings.SAUCE_ACCESS_KEY)
 
     local("HOST="+target_host+" " +
+          "TARGET_BROWSERS=" + target_browsers + " " +
           "py.test " +
           "-n3 " +  # run 3 in parallel - max for free account
           "--boxed " +  # don't let crashes in single test kill whole process
