@@ -57,15 +57,6 @@ def get_link_query(link_guid):
 def get_storage_path(base_storage_path):
     return os.path.join(settings.MEDIA_ROOT, base_storage_path)
 
-def create_storage_dir(storage_path):
-    if not os.path.exists(storage_path):
-        try:
-            os.makedirs(storage_path)
-        except OSError, e:
-            # if we get OSError(17, 'File exists'), ignore it -- another thread made the dir at the same time
-            if e.errno != 17:
-                raise
-
 def save_screenshot(driver, image_path):
     """ Given selenium webdriver and path, save screenshot using Django's default_storage. """
     png_data = driver.get_screenshot_as_png()

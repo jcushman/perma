@@ -281,6 +281,7 @@ INSTALLED_APPS = (
     'api',
     'monitor',
     'mirroring',
+    'archive',
 
     # third party apps
     'ratelimit',
@@ -521,3 +522,5 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'  # In Django 1.7, including th
 USE_SAUCE = False  # Default to local functional tests
 SAUCE_USERNAME = None
 SAUCE_ACCESS_KEY = None
+
+WARC_STORAGE_DIR = 'warcs'  # relative to MEDIA_ROOT

@@ -195,14 +195,19 @@ def single_linky(request, guid, send_downstream=False):
                     # Something is broken with the site, so we might as well display it in an iFrame so the user knows
                     display_iframe = True
 
+            else:
+                if not default_storage.exists(asset.warc_storage_file()):
+                    asset.export_warc()
+
             context = {
                 'linky': link,
                 'asset': asset,
                 'next': request.get_full_path(),
                 'display_iframe': display_iframe,
                 'serve_type': serve_type,
-                'text_capture': text_capture,
-                'warc_url': asset.warc_url()
+                #'text_capture': text_capture,
+                #'warc_url': asset.warc_url(),
+                'base_playback_url': asset.base_playback_url(),
             }
 
         # check that we have the disk assets for this asset
@@ -211,7 +216,8 @@ def single_linky(request, guid, send_downstream=False):
 
     if send_downstream:
         # if we were called by a mirror, serialize and send back as JSON
-        context['warc_url'] = absolute_url(request, context['asset'].warc_url(settings.DIRECT_WARC_HOST))
+        context['base_playback_url'] = asset.base_playback_url(host=settings.DIRECT_WARC_HOST)
+        #context['warc_url'] = absolute_url(request, context['asset'].warc_url(settings.DIRECT_WARC_HOST))
         context['MEDIA_URL'] = absolute_url(request, settings.DIRECT_MEDIA_URL)
         context['asset'] = serializers.serialize("json", [context['asset']], fields=Asset.mirror_fields)
         context['linky'] = serializers.serialize("json", [context['linky']], fields=Link.mirror_fields+('created_by',))

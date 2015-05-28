@@ -216,15 +216,15 @@
 
                 {% elif not linky|is_darchive or request.user.can_vest or request.user.is_authenticated and request.user.pk == linky.created_by_id %}
                     {% if serve_type == 'image' %}
-                        <img class="image-view" src="{{ MEDIA_URL }}{{ asset.image_url }}"/>
+                        <img class="image-view" src="{{ base_playback_url }}{{ asset.image_url }}"/>
 
                     {% elif serve_type == 'pdf' %}
-                        <iframe src="{{ MEDIA_URL }}{{ asset.pdf_url }}">
+                        <iframe src="{{ base_playback_url }}{{ asset.pdf_url }}">
                             <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
                         </iframe>
 
                     {% elif serve_type == 'source' %}
-                        <iframe src="{{ warc_url }}" sandbox="allow-forms allow-scripts allow-top-navigation">
+                        <iframe src="{{ base_playback_url }}{{ asset.warc_url }}" sandbox="allow-forms allow-scripts allow-top-navigation">
                             <p>Unable to create a live view of <a class="submitted_url" href="{{linky.submitted_url}}">{{linky.submitted_url}}</a></p>
                         </iframe>
 
