@@ -35,7 +35,7 @@ def search(request):
     # export file names
     files_to_index = []
     for update in updates:
-        path = update.assets.first().warc_storage_path()
+        path = update.assets.first().guid_as_path()
         files_to_index.extend([
             '%s/%s.warc.gz' % (path, update.guid),
             '%s/%s_metadata.json' % (path, update.guid),
@@ -93,11 +93,6 @@ def fetch_warc(request, path, guid):
     if asset.pdf_capture and ('cap' in asset.pdf_capture or 'upload' in asset.pdf_capture):
         file_path = os.path.join(asset.base_storage_path, asset.pdf_capture)
         write_resource_record(file_path, "file:///%s/%s" % (guid, asset.pdf_capture), 'application/pdf')
-
-    # write text capture
-    if asset.text_capture == 'instapaper_cap.html':
-        file_path = os.path.join(asset.base_storage_path, asset.text_capture)
-        write_resource_record(file_path, "file:///%s/%s" % (guid, asset.text_capture), 'text/html')
 
     if asset.warc_capture:
         # write WARC capture

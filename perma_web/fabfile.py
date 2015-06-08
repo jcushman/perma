@@ -214,6 +214,31 @@ def fix_file_names(real=False):
         if real:
             asset.save()
 
+@task
+def fetch_assets(*guids):
+    """ Print command to grab file assets from live server for testing. """
+    from perma.models import Asset
+    for guid in guids:
+        asset = Asset.objects.get(link_id=guid)
+        target = asset.base_storage_path.rsplit('/', 1)[0]
+        print "mkdir -p ../services/django/generated_assets/%s; scp -r perma:/perma/assets/generated/%s ../services/django/generated_assets/%s" % (target, asset.base_storage_path, target)
+
+@task
+def export_all_warcs(start_date=None):
+    from perma.models import Link
+    from django.core.files.storage import default_storage
+
+    links = Link.objects.all().order_by('creation_timestamp')
+    if start_date:
+        links = links.filter(creation_timestamp__gte=start_date)
+
+    for link in links:
+        # print "Exporting %s -- %s" % (link.guid, link.creation_timestamp)
+        if not default_storage.exists(link.warc_storage_file()):
+            link.export_warc()
+
+    print "Done."
+
 
 ### DEPLOYMENT ###
 

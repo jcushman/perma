@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(max_length=10, choices=[(b'pending', b'pending'), (b'failed', b'failed'), (b'success', b'success')])),
                 ('url', models.CharField(max_length=2100, null=True, blank=True)),
                 ('record_type', models.CharField(max_length=10, choices=[(b'response', b'WARC Response record -- recorded from web'), (b'resource', b'WARC Resource record -- file without web headers')])),
-                ('content_type', models.CharField(help_text=b'HTTP Content-type header.', max_length=255, null=True, blank=True)),
+                ('content_type', models.CharField(default=b'', help_text=b'HTTP Content-type header.', max_length=255)),
                 ('user_upload', models.BooleanField(default=False, help_text=b'True if the user uploaded this capture.')),
                 ('link', models.ForeignKey(related_name='captures', to='perma.Link')),
             ],

@@ -127,6 +127,10 @@ def single_linky(request, guid):
 
     # serve raw WARC
     if serve_type == 'warc_download':
+        # TEMP: remove after all legacy warcs have been exported
+        if not default_storage.exists(link.warc_storage_file()):
+            link.export_warc()
+
         response = StreamingHttpResponse(FileWrapper(default_storage.open(link.warc_storage_file()), 1024 * 8),
                                          content_type="application/gzip")
         response['Content-Disposition'] = "attachment; filename=%s.warc.gz" % link.guid
@@ -148,9 +152,6 @@ def single_linky(request, guid):
             display_iframe = True
 
     else:
-        if not default_storage.exists(link.warc_storage_file()):
-            link.export_warc()
-
         if serve_type == 'source' or serve_type == 'pdf':
             capture = link.primary_capture
 

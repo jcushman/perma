@@ -50,8 +50,7 @@ class PermaRoute(archivalrouter.Route):
         except Link.DoesNotExist:
             raise NotFoundException()
 
-        lines = CDXLine.objects.filter(urlkey=urlkey,
-                                       link_id=guid)
+        lines = CDXLine.objects.filter(urlkey=urlkey, link_id=guid)
 
         # Legacy archives didn't generate CDXLines during
         # capture so generate them on demand if not found, unless
@@ -59,12 +58,16 @@ class PermaRoute(archivalrouter.Route):
         # B: we know other cdx lines have already been generated
         #    and the requested line is simply missing
         if lines.count() == 0:
-            if link.primary_capture.status != 'success' or link.cdx_lines.count() > 0:
+            if link.cdx_lines.count() > 0:
                 raise NotFoundException()
 
-            lines = CDXLine.objects.create_all_from_link(link)
-            lines = [line for line in lines if line.urlkey==urlkey]
-            if not lines:
+            # TEMP: remove after all legacy warcs have been exported
+            if not default_storage.exists(link.warc_storage_file()):
+                link.export_warc()
+
+            CDXLine.objects.create_all_from_link(link)
+            lines = CDXLine.objects.filter(urlkey=urlkey, link_id=guid)
+            if not len(lines):
                 raise NotFoundException()
 
         # Store the line for use in PermaCDXSource
@@ -228,7 +231,7 @@ def new_rewrite(self, status_headers, urlrewriter, cookie_rewriter):
     result = orig_HeaderRewriter_rewrite(self, status_headers, urlrewriter, cookie_rewriter)
     if status_headers.get_header('Content-Type') == 'application/pdf':
         content_disposition = status_headers.get_header('Content-Disposition')
-        if 'attachment' in content_disposition:
+        if content_disposition and 'attachment' in content_disposition:
             result.status_headers.headers = [h for h in result.status_headers.headers if h[0].lower() != 'content-disposition']
             result.removed_header_dict['content-disposition'] = content_disposition
             result.status_headers.headers.append((self.header_prefix + 'Content-Disposition', content_disposition))

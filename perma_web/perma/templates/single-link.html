@@ -94,7 +94,7 @@
                                                 {% if link.screenshot_capture.status == 'pending' %}
                                                     <span id="image_cap_container_loading" class="tab-styling container-loading">Archiving screen capture</span>
                                                 {% endif %}
-                                                <a id="image_cap_container_complete" class="tab-styling{% if serve_type == 'image' %} active-view{% endif %}" href="{% url 'single_linky' link.guid %}?type=image">
+                                                <a id="image_cap_container_complete" class="tab-styling{% if serve_type == 'image' %} active-view{% endif %}" href="{% url 'single_linky' link.guid %}?type=image" {% if link.screenshot_capture.status == 'pending' %}style="display:none;"{% endif %}>
                                                     Screen capture
                                                 </a>
                                             </li>

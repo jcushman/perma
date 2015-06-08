@@ -1,204 +1,231 @@
 [
-    {
-        "pk": "7CF8-SS4G",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                24
-            ],
-            "view_count": 3,
-            "vested": false,
-            "vested_timestamp": null,
-            "notes": "",
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 3,
-            "dark_archived": false,
-            "submitted_title": "arxiv.org",
-            "submitted_url": "http://arxiv.org/pdf/1406.3611.pdf",
-            "vested_by_editor": null,
-            "creation_timestamp": "2014-06-16T19:23:24Z",
-            "vesting_org": null
-        }
-    },
-    {
-        "pk": "JJ3S-2Q5N",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                25
-            ],
-            "view_count": 1,
-            "vested": false,
-            "vested_timestamp": null,
-            "notes": "",
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 4,
-            "dark_archived": false,
-            "submitted_title": "Dole Kemp 96 Web Site",
-            "submitted_url": "http://dolekemp96.org",
-            "vested_by_editor": null,
-            "creation_timestamp": "2014-06-16T19:22:51Z",
-            "vesting_org": null
-        }
-    },
-    {
-        "pk": "3SLN-JHX9",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                25,
-                27
-            ],
-            "view_count": 2,
-            "vested": true,
-            "vested_timestamp": "2014-12-07T18:56:33Z",
-            "user_deleted": false,
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 4,
-            "dark_archived_by": null,
-            "user_deleted_timestamp": null,
-            "dark_archived": false,
-            "submitted_title": "MetaFilter | Community Weblog",
-            "submitted_url": "http://metafilter.com",
-            "vested_by_editor": 3,
-            "creation_timestamp": "2014-12-07T18:55:37Z",
-            "notes": "Maybe the source of all cool things on the internet.",
-            "vesting_org": 1
-        }
-    },
-    {
-        "pk": "ABCD-1234",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                25,
-                34
-            ],
-            "view_count": 2,
-            "vested": true,
-            "vested_timestamp": "2014-12-08T18:56:33Z",
-            "user_deleted": false,
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 4,
-            "dark_archived_by": null,
-            "user_deleted_timestamp": null,
-            "dark_archived": false,
-            "submitted_title": "Google",
-            "submitted_url": "http://google.com",
-            "vested_by_editor": 3,
-            "creation_timestamp": "2014-12-08T18:55:37Z",
-            "notes": "In a vesting org subfolder, vested.",
-            "vesting_org": 1
-        }
-    },
-    {
-        "pk": "EFGH-5678",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                25,
-                35
-            ],
-            "view_count": 2,
-            "vested": false,
-            "vested_timestamp": null,
-            "user_deleted": false,
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 4,
-            "dark_archived_by": null,
-            "user_deleted_timestamp": null,
-            "dark_archived": false,
-            "submitted_title": "Google",
-            "submitted_url": "http://google.com",
-            "vested_by_editor": null,
-            "creation_timestamp": "2014-12-09T18:55:37Z",
-            "notes": "In a vesting org subfolder, unvested.",
-            "vesting_org": null
-        }
-    },
-    {
-        "pk": "UU32-XY8I",
-        "model": "perma.link",
-        "fields": {
-            "folders": [
-                30
-            ],
-            "view_count": 1,
-            "vested": false,
-            "vested_timestamp": null,
-            "notes": "",
-            "dark_archived_robots_txt_blocked": false,
-            "created_by": 4,
-            "dark_archived": false,
-            "submitted_title": "Wikipedia",
-            "submitted_url": "https://www.wikipedia.org/",
-            "vested_by_editor": null,
-            "creation_timestamp": "2014-07-19T20:21:31Z",
-            "vesting_org": null
-        }
-    },
-    {
-        "pk": 1,
-        "model": "perma.asset",
-        "fields": {
-            "text_capture": "pending",
-            "instapaper_timestamp": null,
-            "warc_capture": "pending",
-            "instapaper_id": null,
-            "favicon": null,
-            "image_capture": "cap.png",
-            "pdf_capture": null,
-            "link": "JJ3S-2Q5N",
-            "base_storage_path": "2014/6/16/19/22/JJ3S-2Q5N",
-            "instapaper_hash": null
-        }
-    },
-    {
-        "pk": 2,
-        "model": "perma.asset",
-        "fields": {
-            "text_capture": null,
-            "instapaper_timestamp": null,
-            "warc_capture": null,
-            "instapaper_id": null,
-            "favicon": null,
-            "image_capture": null,
-            "pdf_capture": "cap.pdf",
-            "link": "7CF8-SS4G",
-            "base_storage_path": "2014/6/16/19/23/7CF8-SS4G",
-            "instapaper_hash": null
-        }
-    },
-    {
-        "pk": 3,
-        "model": "perma.asset",
-        "fields": {
-            "text_capture": null,
-            "instapaper_timestamp": null,
-            "warc_capture": "archive.warc.gz",
-            "instapaper_id": null,
-            "favicon": null,
-            "image_capture": "cap.png",
-            "pdf_capture": null,
-            "link": "3SLN-JHX9",
-            "base_storage_path": "2014/12/7/18/55/3SLN-JHX9",
-            "instapaper_hash": null
-        }
-    },
-    {
-        "pk": 4,
-        "model": "perma.asset",
-        "fields": {
-            "text_capture": null,
-            "instapaper_timestamp": null,
-            "warc_capture": "archive.warc.gz",
-            "instapaper_id": null,
-            "favicon": null,
-            "image_capture": "cap.png",
-            "pdf_capture": null,
-            "link": "UU32-XY8I",
-            "base_storage_path": "2014/12/7/18/55/UU32-XY8I",
-            "instapaper_hash": null
-        }
+  {
+    "pk": "7CF8-SS4G",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        24
+      ],
+      "view_count": 3,
+      "vested": false,
+      "vested_timestamp": null,
+      "notes": "",
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 3,
+      "dark_archived": false,
+      "submitted_title": "arxiv.org",
+      "submitted_url": "http://arxiv.org/pdf/1406.3611.pdf",
+      "vested_by_editor": null,
+      "creation_timestamp": "2014-06-16T19:23:24Z",
+      "vesting_org": null
     }
+  },
+  {
+    "pk": "JJ3S-2Q5N",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        25
+      ],
+      "view_count": 1,
+      "vested": false,
+      "vested_timestamp": null,
+      "notes": "",
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 4,
+      "dark_archived": false,
+      "submitted_title": "Dole Kemp 96 Web Site",
+      "submitted_url": "http://dolekemp96.org",
+      "vested_by_editor": null,
+      "creation_timestamp": "2014-06-16T19:22:51Z",
+      "vesting_org": null
+    }
+  },
+  {
+    "pk": "3SLN-JHX9",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        25,
+        27
+      ],
+      "view_count": 2,
+      "vested": true,
+      "vested_timestamp": "2014-12-07T18:56:33Z",
+      "user_deleted": false,
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 4,
+      "dark_archived_by": null,
+      "user_deleted_timestamp": null,
+      "dark_archived": false,
+      "submitted_title": "MetaFilter | Community Weblog",
+      "submitted_url": "http://metafilter.com",
+      "vested_by_editor": 3,
+      "creation_timestamp": "2014-12-07T18:55:37Z",
+      "notes": "Maybe the source of all cool things on the internet.",
+      "vesting_org": 1
+    }
+  },
+  {
+    "pk": "ABCD-1234",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        25,
+        34
+      ],
+      "view_count": 2,
+      "vested": true,
+      "vested_timestamp": "2014-12-08T18:56:33Z",
+      "user_deleted": false,
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 4,
+      "dark_archived_by": null,
+      "user_deleted_timestamp": null,
+      "dark_archived": false,
+      "submitted_title": "Google",
+      "submitted_url": "http://google.com",
+      "vested_by_editor": 3,
+      "creation_timestamp": "2014-12-08T18:55:37Z",
+      "notes": "In a vesting org subfolder, vested.",
+      "vesting_org": 1
+    }
+  },
+  {
+    "pk": "EFGH-5678",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        25,
+        35
+      ],
+      "view_count": 2,
+      "vested": false,
+      "vested_timestamp": null,
+      "user_deleted": false,
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 4,
+      "dark_archived_by": null,
+      "user_deleted_timestamp": null,
+      "dark_archived": false,
+      "submitted_title": "Google",
+      "submitted_url": "http://google.com",
+      "vested_by_editor": null,
+      "creation_timestamp": "2014-12-09T18:55:37Z",
+      "notes": "In a vesting org subfolder, unvested.",
+      "vesting_org": null
+    }
+  },
+  {
+    "pk": "UU32-XY8I",
+    "model": "perma.link",
+    "fields": {
+      "folders": [
+        30
+      ],
+      "view_count": 1,
+      "vested": false,
+      "vested_timestamp": null,
+      "notes": "",
+      "dark_archived_robots_txt_blocked": false,
+      "created_by": 4,
+      "dark_archived": false,
+      "submitted_title": "Wikipedia",
+      "submitted_url": "https://www.wikipedia.org/",
+      "vested_by_editor": null,
+      "creation_timestamp": "2014-07-19T20:21:31Z",
+      "vesting_org": null
+    }
+  },
+  {
+    "fields": {
+      "status": "pending",
+      "url": "http://dolekemp96.org",
+      "user_upload": false,
+      "record_type": "response",
+      "role": "primary",
+      "content_type": null,
+      "link": "JJ3S-2Q5N"
+    },
+    "model": "perma.capture",
+    "pk": 1
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "file:///JJ3S-2Q5N/cap.png",
+      "user_upload": false,
+      "record_type": "resource",
+      "role": "screenshot",
+      "content_type": "image/png",
+      "link": "JJ3S-2Q5N"
+    },
+    "model": "perma.capture",
+    "pk": 2
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "http://arxiv.org/pdf/1406.3611.pdf",
+      "user_upload": false,
+      "record_type": "response",
+      "role": "primary",
+      "content_type": "application/pdf",
+      "link": "7CF8-SS4G"
+    },
+    "model": "perma.capture",
+    "pk": 3
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "http://metafilter.com",
+      "user_upload": false,
+      "record_type": "response",
+      "role": "primary",
+      "content_type": "text/html",
+      "link": "3SLN-JHX9"
+    },
+    "model": "perma.capture",
+    "pk": 4
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "file:///3SLN-JHX9/cap.png",
+      "user_upload": false,
+      "record_type": "resource",
+      "role": "screenshot",
+      "content_type": "image/png",
+      "link": "3SLN-JHX9"
+    },
+    "model": "perma.capture",
+    "pk": 5
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "https://www.wikipedia.org/",
+      "user_upload": false,
+      "record_type": "response",
+      "role": "primary",
+      "content_type": "text/html",
+      "link": "UU32-XY8I"
+    },
+    "model": "perma.capture",
+    "pk": 6
+  },
+  {
+    "fields": {
+      "status": "success",
+      "url": "file:///UU32-XY8I/cap.png",
+      "user_upload": false,
+      "record_type": "resource",
+      "role": "screenshot",
+      "content_type": "image/png",
+      "link": "UU32-XY8I"
+    },
+    "model": "perma.capture",
+    "pk": 7
+  }
 ]

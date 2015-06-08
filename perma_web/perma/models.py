@@ -15,7 +15,7 @@ from wand.image import Image
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.utils import timezone
@@ -580,20 +580,20 @@ class Link(models.Model):
         from api.resources import LinkResource
         return LinkResource().as_json(self, request)
 
-    def warc_storage_path(self):
+    def guid_as_path(self):
         # For a GUID like ABCD-1234, return a path like AB/CD/12.
         stripped_guid = re.sub('[^0-9A-Za-z]+', '', self.guid)
         guid_parts = [stripped_guid[i:i + 2] for i in range(0, len(stripped_guid), 2)]
         return '/'.join(guid_parts[:-1])
 
     def warc_storage_file(self):
-        return os.path.join(settings.WARC_STORAGE_DIR, self.warc_storage_path(), '%s.warc.gz' % self.guid)
+        return os.path.join(settings.WARC_STORAGE_DIR, self.guid_as_path(), '%s.warc.gz' % self.guid)
 
     def get_thumbnail(self, source_file=None):
         if self.thumbnail_status == 'failed' or self.thumbnail_status == 'generating':
             return None
 
-        thumbnail_path = os.path.join(settings.THUMBNAIL_STORAGE_PATH, self.warc_storage_path(), 'thumbnail.png')
+        thumbnail_path = os.path.join(settings.THUMBNAIL_STORAGE_PATH, self.guid_as_path(), 'thumbnail.png')
 
         if self.thumbnail_status == 'generated' and default_storage.exists(thumbnail_path):
             return default_storage.open(thumbnail_path)
@@ -718,7 +718,15 @@ class Link(models.Model):
         default_storage.store_file(out, self.warc_storage_file(), overwrite=True)
         out.close()
 
+    @transaction.atomic
     def export_warc(self):
+        # by using select_for_update and checking for existence of this file,
+        # we make sure that we won't accidentally try to create the file multiple
+        # times in parallel.
+        asset = self.assets.select_for_update().first()
+        if default_storage.exists(self.warc_storage_file()):
+            return
+
         guid = self.guid
         out = self.open_warc_for_writing()
 
@@ -730,30 +738,28 @@ class Link(models.Model):
                 default_storage.created_time(file_path),
                 out)
 
-        self.write_warc_header(out)
-
         # write PDF capture
-        if self.pdf_capture and ('cap' in self.pdf_capture or 'upload' in self.pdf_capture):
-            file_path = os.path.join(self.base_storage_path, self.pdf_capture)
-            write_resource_record(file_path, "file:///%s/%s" % (guid, self.pdf_capture), 'application/pdf')
+        if asset.pdf_capture and ('cap' in asset.pdf_capture or 'upload' in asset.pdf_capture):
+            file_path = os.path.join(asset.base_storage_path, asset.pdf_capture)
+            write_resource_record(file_path, "file:///%s/%s" % (guid, asset.pdf_capture), 'application/pdf')
 
         # write image capture (if it's not a PDF thumbnail)
-        elif (self.image_capture and ('cap' in self.image_capture or 'upload' in self.image_capture)):
-            file_path = os.path.join(self.base_storage_path, self.image_capture)
-            mime_type = get_mime_type(self.image_capture)
-            write_resource_record(file_path, "file:///%s/%s" % (guid, self.image_capture), mime_type)
+        elif (asset.image_capture and ('cap' in asset.image_capture or 'upload' in asset.image_capture)):
+            file_path = os.path.join(asset.base_storage_path, asset.image_capture)
+            mime_type = get_mime_type(asset.image_capture)
+            write_resource_record(file_path, "file:///%s/%s" % (guid, asset.image_capture), mime_type)
 
-        if self.warc_capture:
+        if asset.warc_capture:
             # write WARC capture
-            if self.warc_capture == 'archive.warc.gz':
-                file_path = os.path.join(self.base_storage_path, self.warc_capture)
+            if asset.warc_capture == 'archive.warc.gz':
+                file_path = os.path.join(asset.base_storage_path, asset.warc_capture)
                 self.write_warc_raw_data(default_storage.open(file_path), out)
 
             # write wget capture
-            elif self.warc_capture == 'source/index.html':
+            elif asset.warc_capture == 'source/index.html':
                 mime = MimeTypes()
-                for root, dirs, files in default_storage.walk(os.path.join(self.base_storage_path, 'source')):
-                    rel_path = root.split(self.base_storage_path, 1)[-1]
+                for root, dirs, files in default_storage.walk(os.path.join(asset.base_storage_path, 'source')):
+                    rel_path = root.split(asset.base_storage_path, 1)[-1]
                     for file_name in files:
                         mime_type = mime.guess_type(file_name)[0]
                         write_resource_record(os.path.join(root, file_name),
@@ -799,7 +805,7 @@ class Capture(models.Model):
     record_type = models.CharField(max_length=10, choices=(
         ('response','WARC Response record -- recorded from web'),
         ('resource','WARC Resource record -- file without web headers')))
-    content_type = models.CharField(max_length=255, null=True, blank=True, help_text="HTTP Content-type header.")
+    content_type = models.CharField(max_length=255, null=False, default='', help_text="HTTP Content-type header.")
     user_upload = models.BooleanField(default=False, help_text="True if the user uploaded this capture.")
 
     def write_warc_resource_record(self, in_file, warc_date=None, out_file=None):
@@ -808,6 +814,13 @@ class Capture(models.Model):
     def get_headers(self):
         headers, data = self.link.replay_url(self.url)
         return headers
+
+    def read_content_type(self):
+        """ Read content-type from warc file. """
+        for key, val in self.get_headers().iteritems():
+            if key.lower() == 'content-type':
+                return val
+        return ''
 
     def use_sandbox(self):
         """
@@ -835,6 +848,8 @@ class Capture(models.Model):
         return self.content_type.split(";", 1)[0].lower().replace('/x-', '/')
 
     def playback_url(self):
+        if not self.url:
+            return None
         return u"%s/warc/%s/%s%s" % (settings.WARC_HOST or '', self.link_id, "id_/" if self.record_type == 'resource' else "", self.url)
 
 

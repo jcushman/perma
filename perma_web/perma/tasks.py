@@ -191,6 +191,7 @@ def proxy_capture(self, link_guid, user_agent=''):
         page_load_thread.start()
         page_load_thread.join(ONLOAD_EVENT_TIMEOUT)
 
+        # wait for the HAR log to report that at least one resource has successfully loaded
         while True:
             har_log_entries = json.loads(browser.get_log('har')[0]['message'])['log']['entries']
             if har_log_entries:
@@ -199,10 +200,14 @@ def proxy_capture(self, link_guid, user_agent=''):
                 raise HaltCaptureException
             time.sleep(1)
 
-        headers = dict((x['name'], x['value']) for x in har_log_entries[0]['response']['headers'])
-        content_type = headers.get('Content-Type')
+        # use the HAR log to retrieve the URL we ended up, after any forwards,
+        # and the content type.
+        content_type = None
+        for header in har_log_entries[0]['response']['headers']:
+            if header['name'].lower() == 'content-type':
+                content_type = header['value']
         content_url = har_log_entries[0]['request']['url']
-        have_html = content_type.startswith('text/html')
+        have_html = content_type and content_type.startswith('text/html')
         print "Finished fetching url."
 
         # get favicon url
@@ -372,7 +377,8 @@ def proxy_capture(self, link_guid, user_agent=''):
             print "Writing CDX lines to the DB"
             CDXLine.objects.create_all_from_link(link)
 
-            save_fields(link.primary_capture, content_type=link.primary_capture.get_headers().get('Content-Type'))
+            # now we have CDX lines we can read the correct content-type
+            save_fields(link.primary_capture, content_type=link.primary_capture.read_content_type())
 
         except Exception as e:
             print "Web Archive File creation failed for %s: %s" % (target_url, e)

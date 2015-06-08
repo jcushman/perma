@@ -372,7 +372,11 @@ LOGGING = {
             'level': 'ERROR',
             'filters': ['require_debug_false'],
             'class': 'django.utils.log.AdminEmailHandler'
-        }
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+
     },
     'loggers': {
         '': {
@@ -385,6 +389,10 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
         },
+        'django.db.backends.schema':{
+            'handlers': ['console'],
+            'level':'DEBUG'
+        }
     }
 }
 
