@@ -157,9 +157,12 @@ class LinkAdmin(admin.ModelAdmin):
     )
     readonly_fields = ['guid', 'view_count', 'folders', 'creation_timestamp']
     inlines = [
-        new_class("AssetInline", admin.TabularInline, model=Asset,
-                  fields=['base_storage_path', 'image_capture', 'warc_capture', 'pdf_capture', 'text_capture'],
-                  can_delete=False, max_num=1),
+        new_class("CaptureInline", admin.TabularInline, model=Capture,
+                  fields=['url', 'content_type', 'record_type', 'user_upload'],
+                  can_delete=False),
+        new_class("CDXLineInline", admin.TabularInline, model=CDXLine,
+                  fields=['raw'],
+                  can_delete=False),
     ]
 
 

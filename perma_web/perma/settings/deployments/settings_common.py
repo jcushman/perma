@@ -132,7 +132,7 @@ PIPELINE_JS = {
 
     'create': {
         'source_filenames': (
-            'js/spin.js',
+            'js/lib/spin.js',
             'js/jquery.form.min.js',
             'js/create.js',
         ),
@@ -186,7 +186,9 @@ PIPELINE_JS = {
     },
     'single-link': {
         'source_filenames': (
+            'js/lib/spin.js',
             'js/single-link.js',
+
         ),
         'output_filename': 'js/single-link-bundle.js',
     },
@@ -488,6 +490,9 @@ DIRECT_WARC_HOST = None     # host to load warc from this server in particular -
 THUMBNAIL_ENGINE = 'sorl.thumbnail.engines.wand_engine.Engine'
 THUMBNAIL_FORMAT = 'PNG'
 THUMBNAIL_COLORSPACE = None
+
+# Relative to MEDIA_ROOT
+THUMBNAIL_STORAGE_PATH = 'thumbnails'
 
 # feature flags
 SINGLE_LINK_HEADER_TEST = False

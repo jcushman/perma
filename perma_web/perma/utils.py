@@ -102,3 +102,15 @@ def get_png_size(fh):
         raise ValueError("File is not a png.")
     w, h = struct.unpack('>LL', data[16:24])
     return int(w), int(h)
+
+### file manipulation ###
+
+def copy_file_data(from_file_handle, to_file_handle, chunk_size=1024*100):
+    """
+        Copy data from first file handle to second file handle in memory-efficient way.
+    """
+    while True:
+        data = from_file_handle.read(chunk_size)
+        if not data:
+            break
+        to_file_handle.write(data)

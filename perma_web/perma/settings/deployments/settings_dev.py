@@ -10,6 +10,7 @@ SERVICES_DIR = os.path.abspath(os.path.join(PROJECT_ROOT, '../services'))
 # logging
 LOGGING_DIR = os.path.join(SERVICES_DIR, 'logs')
 LOGGING['handlers']['default']['filename'] = os.path.join(LOGGING_DIR, 'django.log')
+
 PHANTOMJS_LOG = os.path.join(LOGGING_DIR, 'phantomjs.log')
 
 # user-generated files
