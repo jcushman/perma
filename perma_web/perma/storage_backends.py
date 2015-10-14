@@ -2,12 +2,11 @@
 import cStringIO as StringIO
 import os
 
-from django.contrib.staticfiles.storage import CachedFilesMixin, ManifestStaticFilesStorage
+from django.contrib.staticfiles.storage import ManifestStaticFilesStorage
 from django.core.files.storage import FileSystemStorage as DjangoFileSystemStorage
 from django.core.files import File
 from django.conf import settings
 import django.dispatch
-
 from pipeline.storage import PipelineMixin
 from storages.backends.s3boto import S3BotoStorage
 from whitenoise.django import GzipStaticFilesMixin
