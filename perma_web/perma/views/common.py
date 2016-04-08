@@ -208,10 +208,10 @@ def rate_limit(request, exception):
 ## We need custom views for server errors because otherwise Django
 ## doesn't send a RequestContext (meaning we don't get STATIC_ROOT).
 def server_error_404(request):
-    return HttpResponseNotFound(render_to_string('404.html', context_instance=RequestContext(request)))
+    return render(request, '404.html', status=404)
 
 def server_error_500(request):
-    return HttpResponseServerError(render_to_string('500.html', context_instance=RequestContext(request)))
+    return render(request, '500.html', status=500)
 
 @csrf_exempt
 @ratelimit(method='GET', rate=settings.MINUTE_LIMIT, block=True, ip=False,
