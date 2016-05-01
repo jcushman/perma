@@ -35,8 +35,9 @@ from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.template.defaultfilters import truncatechars
 from django.conf import settings
+from django.utils import timezone
 
-from perma.models import WeekStats, MinuteStats, Registrar, LinkUser, Link, Organization, CDXLine, Capture
+from perma.models import WeekStats, MinuteStats, Registrar, LinkUser, Link, Organization, CDXLine, Capture, CaptureJob
 
 from perma.utils import run_task
 
@@ -189,6 +190,16 @@ def parse_response(response_text):
 
 ### TASKS ##
 
+@shared_task
+def run_next_capture():
+    """ Grab and run the next CaptureJob. This will keep calling itself until there are no jobs left. """
+    capture_job = CaptureJob.get_next_job(reserve=True)
+    if not capture_job:
+        return  # no jobs waiting
+    proxy_capture.apply([capture_job.link_id])
+    run_task(run_next_capture.s())
+
+
 class ProxyCaptureTask(Task):
     """
         After each call to proxy_capture, we check if it has failed more than max_retries times,
@@ -197,7 +208,9 @@ class ProxyCaptureTask(Task):
     abstract = True
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
         if self.request.retries >= self.max_retries:
-            Capture.objects.filter(link_id=(args[0] if args else kwargs['link_guid']), status='pending').update(status='failed')
+            link_guid = args[0] if args else kwargs['link_guid']
+            Capture.objects.filter(link_id=link_guid, status='pending').update(status='failed')
+            CaptureJob.objects.filter(link_guid).update(status='failed', capture_end_time=timezone.now())
 
 @shared_task(bind=True,
              default_retry_delay=30,  # seconds
@@ -205,9 +218,9 @@ class ProxyCaptureTask(Task):
              base=ProxyCaptureTask)
 @retry_on_error
 @tempdir.run_in_tempdir()
-def proxy_capture(self, link_guid, user_agent=''):
+def proxy_capture(self, link_guid):
     """
-    start warcprox process. Warcprox is a MITM proxy server and needs to be running
+    Start warcprox process. Warcprox is a MITM proxy server and needs to be running
     before, during and after phantomjs gets a screenshot.
 
     Create an image from the supplied URL, write it to disk and update our asset model with the path.
@@ -216,19 +229,26 @@ def proxy_capture(self, link_guid, user_agent=''):
     This whole function runs with the local dir set to a temp dir by run_in_tempdir().
     So we can use local paths for temp files, and they'll just disappear when the function exits.
     """
+
     # basic setup
     link = Link.objects.get(guid=link_guid)
     target_url = link.safe_url
+
+    capture_job = link.capture_job
+    capture_job.attempt += 1
+    capture_job.save()
 
     # allow pending tasks to be canceled outside celery by updating capture status
     if link.primary_capture.status != "pending":
         return
 
-    # Override user_agent for now, since PhantomJS doesn't like some user agents.
-    # This user agent is the Chrome on Linux that's most like PhantomJS 2.1.1.
-    user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.37 Safari/537.36"
+    # Helper function to update capture_job's progress
+    def display_progress(step_count, step_description):
+        save_fields(capture_job, step_count=step_count, step_description=step_description)
+        print "%s step %s: %s" % (link_guid, step_count, step_description)
 
     print "%s: Fetching %s" % (link_guid, target_url)
+    display_progress(1, "Starting capture")
 
     # suppress verbose warcprox logs
     logging.disable(logging.INFO)
@@ -278,7 +298,7 @@ def proxy_capture(self, link_guid, user_agent=''):
         # set up requests getter for one-off requests outside of selenium
         def proxied_get_request(url):
             return requests.get(url,
-                                headers={'User-Agent': user_agent},
+                                headers={'User-Agent': settings.CAPTURE_USER_AGENT},
                                 proxies={'http': 'http://' + proxy_address, 'https': 'http://' + proxy_address},
                                 verify=False)
 
@@ -297,8 +317,8 @@ def proxy_capture(self, link_guid, user_agent=''):
             display.start()
 
         # fetch page in the background
-        print "Fetching url."
-        browser = get_browser(user_agent, proxy_address, proxy.ca.ca_file)
+        display_progress(2, "Fetching target URL")
+        browser = get_browser(settings.CAPTURE_USER_AGENT, proxy_address, proxy.ca.ca_file)
         browser.set_window_size(1024, 800)
 
         start_time = time.time()
@@ -324,8 +344,12 @@ def proxy_capture(self, link_guid, user_agent=''):
                     have_response = True
                     break
 
-            if time.time() - start_time > RESOURCE_LOAD_TIMEOUT:
+            wait_time = time.time() - start_time
+            if wait_time > RESOURCE_LOAD_TIMEOUT:
                 raise HaltCaptureException
+
+            display_progress(2 + wait_time/RESOURCE_LOAD_TIMEOUT, "Fetching target URL")
+
             time.sleep(1)
 
         print "Finished fetching url."
@@ -389,7 +413,7 @@ def proxy_capture(self, link_guid, user_agent=''):
 
         if have_html:
             # get page title
-            print "Getting title."
+            display_progress(3, "Getting page title")
             def get_title():
                 if browser.title:
                     save_fields(link, submitted_title=browser.title)
@@ -417,6 +441,7 @@ def proxy_capture(self, link_guid, user_agent=''):
 
             # scroll to bottom of page, in case that prompts anything else to load
             # TODO: This doesn't scroll horizontally or scroll frames
+            display_progress(3.5, "Checking for scroll-loaded assets")
             def scroll_browser():
                 try:
                     scroll_delay = browser.execute_script("""
@@ -446,15 +471,17 @@ def proxy_capture(self, link_guid, user_agent=''):
             repeat_while_exception(scroll_browser)
 
         # make sure all requests are finished
-        print "Waiting for post-load requests."
+        display_progress(4, "Waiting for post-load requests")
         start_time = time.time()
         time.sleep(1)
         while True:
             print "%s/%s finished" % (len(proxied_responses), len(proxied_requests))
             response_count = len(proxied_responses)
-            if time.time() - start_time > AFTER_LOAD_TIMEOUT:
+            wait_time = time.time() - start_time
+            if wait_time > AFTER_LOAD_TIMEOUT:
                 print "Waited %s seconds to finish post-load requests -- giving up." % AFTER_LOAD_TIMEOUT
                 break
+            display_progress(4 + wait_time/AFTER_LOAD_TIMEOUT, "Waiting for post-load requests")
             time.sleep(.5)
             if response_count == len(proxied_requests):
                 break
@@ -477,7 +504,7 @@ def proxy_capture(self, link_guid, user_agent=''):
 
             # take screenshot after all requests done
             if capture_screenshot:
-                print "Taking screenshot."
+                display_progress(5, "Taking screenshot")
                 screenshot_data = browser.get_screenshot_as_png()
                 link.screenshot_capture.write_warc_resource_record(screenshot_data)
                 save_fields(link.screenshot_capture, status='success')
@@ -517,13 +544,15 @@ def proxy_capture(self, link_guid, user_agent=''):
 
     # save generated warc file
     if have_warc:
-        print "Saving WARC."
+        display_progress(6, "Saving web archive file")
         try:
             temp_warc_path = os.path.join(warc_writer.directory,
                                           warc_writer._f_finalname)
             with open(temp_warc_path, 'rb') as warc_file:
                 link.write_warc_raw_data(warc_file)
-                save_fields(link.primary_capture, status='success', content_type=content_type)
+
+            save_fields(link.primary_capture, status='success', content_type=content_type)
+            capture_job.mark_completed()
 
             # We only save the Capture for the favicon once the warc is stored,
             # since the data for the favicon lives in the warc.
@@ -544,6 +573,7 @@ def proxy_capture(self, link_guid, user_agent=''):
         except Exception as e:
             print "Web Archive File creation failed for %s: %s" % (target_url, e)
             save_fields(link.primary_capture, status='failed')
+            capture_job.mark_completed('failed')
 
 
     print "%s capture done." % link_guid

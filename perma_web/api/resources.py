@@ -26,7 +26,8 @@ from perma.models import (LinkUser,
                           Folder,
                           Organization,
                           Registrar,
-                          Capture)
+                          Capture,
+                          CaptureJob)
 
 from authentication import (DefaultAuthentication,
                             CurrentUserAuthentication)
@@ -41,8 +42,7 @@ from serializers import DefaultSerializer
 
 # LinkResource
 from perma.utils import run_task
-from perma.tasks import proxy_capture, upload_to_internet_archive, delete_from_internet_archive
-
+from perma.tasks import proxy_capture, upload_to_internet_archive, delete_from_internet_archive, run_next_capture
 
 
 class DefaultResource(ExtendedModelResource):
@@ -393,6 +393,11 @@ class LinkResource(AuthenticatedLinkResource):
 
         return bundle
 
+    def hydrate_human(self, bundle):
+        if 'human' in bundle.data:
+            bundle.data['human'] = bool(bundle.data['human'])
+        return bundle
+
     def hydrate(self, bundle):
         if bundle.data.get('folder', None):
             try:
@@ -465,7 +470,11 @@ class LinkResource(AuthenticatedLinkResource):
                 content_type='image/png',
             ).save()
 
-            run_task(proxy_capture.s(link.guid, bundle.request.META.get('HTTP_USER_AGENT', '')))
+            # create CaptureJob
+            CaptureJob(link=link, human=bundle.data.get('human', False)).save()
+
+            # kick off capture tasks -- no need for guid since it'll work through the queue
+            run_task(run_next_capture.s())
 
         return bundle
 

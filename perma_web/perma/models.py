@@ -10,6 +10,7 @@ import tempfile
 
 from urlparse import urlparse
 import simple_history
+from datetime import datetime
 from hanzo import warctools
 import requests
 from simple_history.models import HistoricalRecords
@@ -20,7 +21,7 @@ import django.contrib.auth.models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.utils import timezone
@@ -469,9 +470,7 @@ class LinkQuerySet(QuerySet):
 LinkManager = DeletableManager.from_queryset(LinkQuerySet)
 
 
-HEADER_CHECK_TIMEOUT = 10
-# This is the PhantomJS default agent
-USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/534.34 (KHTML, like Gecko) PhantomJS/1.9.0 (development) Safari/534.34"
+HEADER_CHECK_TIMEOUT = 10  # keeping this setting out here allows tests to override it for speed
 
 class Link(DeletableModel):
     """
@@ -523,7 +522,7 @@ class Link(DeletableModel):
             return requests.get(
                 self.safe_url,
                 verify=False,  # don't check SSL cert?
-                headers={'User-Agent': USER_AGENT, 'Accept-Encoding': '*'},
+                headers={'User-Agent': settings.CAPTURE_USER_AGENT, 'Accept-Encoding': '*'},
                 timeout=HEADER_CHECK_TIMEOUT,
                 stream=True  # we're only looking at the headers
             ).headers
@@ -876,6 +875,105 @@ class Capture(models.Model):
         return u"%s%s%s" % (self.link.base_playback_url(), "id_/" if self.record_type == 'resource' else "", self.url)
 
 
+class CaptureJob(models.Model):
+    """
+        This class tracks capture jobs for purposes of:
+            (1) sorting the capture queue fairly and
+            (2) reporting status during a capture.
+    """
+    link = models.OneToOneField(Link, related_name='capture_job')
+    status = models.CharField(max_length=15,
+                              default='pending',
+                              choices=(('pending','pending'),('in_progress','in_progress'),('completed','completed'),('deleted','deleted'),('failed','failed')))
+    human = models.BooleanField(default=False)
+
+    # reporting
+    attempt = models.SmallIntegerField(default=0)
+    step_count = models.FloatField(default=0)
+    step_description = models.CharField(max_length=255, blank=True, null=True)
+    capture_start_time = models.DateTimeField(blank=True, null=True)
+    capture_end_time = models.DateTimeField(blank=True, null=True)
+
+    def __unicode__(self):
+        return u"CaptureJob %s: %s" % (self.pk, self.link_id)
+
+    @classmethod
+    def get_next_job(cls, reserve=False):
+        """
+            Running in a transaction, grab all pending jobs, using select_for_update so other instances of this function
+            have to wait. Figure out which pending job belongs to a user who had a job processed the longest time ago,
+            and return that one to work on next. Look first at jobs where human=True (where a human is supposedly waiting
+            for success) and then those with human=False.
+
+            If `reserve=True`, returned job is marked with `status=in_progress` within the transaction to make sure the
+            same job can't be returned twice. Caller must make sure the job is actually processed once returned.
+        """
+
+        # mark any captures as deleted where link has been deleted before capture
+        CaptureJob.objects.filter(link__user_deleted=True, status='pending').update(status='deleted')
+
+        with transaction.atomic():
+
+            def get_job_queue(human):
+                # Helper function to grab all pending jobs. For the *first* pending job for each user, grab the last
+                # already-processed job. Collecting jobs in a dict keyed by user, and sorting by job ID,
+                # makes sure we only consider the first job for each user.
+                user_jobs = {}
+
+                pending_jobs = cls.objects.\
+                    filter(status='pending', human=human).\
+                    order_by('pk').\
+                    select_for_update()
+
+                for job in pending_jobs:
+                    user_id = job.link.created_by_id
+                    if job.link.created_by_id not in user_jobs:
+                        user_jobs[user_id] = {
+                            'next_job': job,
+                            'last_job': cls.objects.
+                                filter(link__created_by_id=user_id).
+                                exclude(status='pending').
+                                order_by('-pk').
+                                first()
+                        }
+
+                return user_jobs
+
+            # grab any human jobs, or if there are none, grab any robot jobs
+            user_jobs = get_job_queue(human=True) or get_job_queue(human=False)
+
+            print user_jobs
+
+            if user_jobs:
+                # Now we have a dict of the last_job and the next_job for each user in the queue.
+                # Sort users by preference, looking first at whose previous job was processed the longest ago,
+                # and then using whose pending job arrived first as a tiebreaker.
+                epoch = timezone.make_aware(datetime.utcfromtimestamp(0))
+                print [((x['last_job'].capture_start_time if x['last_job'] else epoch), x['next_job'].id) for x in user_jobs.itervalues()]
+                sorted_jobs = sorted(
+                    user_jobs.itervalues(),
+                    key=lambda x: (
+                        x['last_job'].capture_start_time if x['last_job'] else epoch,  # whose previous job is oldest?
+                        x['next_job'].id)  # whose next job is oldest?
+                )
+                next_job = sorted_jobs[0]['next_job']
+
+                # mark the job as in_progress so we won't return it the next time this is called
+                if reserve:
+                    next_job.status = 'in_progress'
+                    next_job.capture_start_time = timezone.now()
+                    next_job.save()
+
+                print next_job
+
+                return next_job
+
+    def mark_completed(self, status='completed'):
+        self.status = status
+        self.capture_end_time = timezone.now()
+        self.save(update_fields=['status', 'capture_end_time'])
+
+
 #########################
 # Stats related models
 #########################
@@ -901,7 +999,7 @@ class MinuteStats(models.Model):
     """
 
     creation_timestamp = models.DateTimeField(auto_now_add=True)
-    
+
     links_sum = models.IntegerField(default=0)
     users_sum = models.IntegerField(default=0)
     organizations_sum = models.IntegerField(default=0)

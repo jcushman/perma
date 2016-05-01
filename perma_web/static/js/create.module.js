@@ -358,19 +358,15 @@ CreateModule.setupEventHandlers = function () {
     // When a new url is entered into our form
   $('#linker').submit(function() {
     var $this = $(this);
-    var linker_data = {};
+    var linker_data = {
+      url: $this.find("input[name=url]").val(),
+      human: true
+    };
     var selectedFolder = CreateModule.ls.getCurrent().folderId;
 
-    if(selectedFolder){
-      linker_data = {
-        url: $this.find("input[name=url]").val(),
-        folder: selectedFolder || null
-      }
-    } else {
-      linker_data = {
-        url: $this.find("input[name=url]").val()
-      };
-    }
+    if(selectedFolder)
+      linker_data.folder = selectedFolder;
+
     // Start our spinner and disable our input field with just a tiny delay
     window.setTimeout(CreateModule.toggleCreateAvailable, 150);
 

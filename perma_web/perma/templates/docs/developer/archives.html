@@ -23,10 +23,15 @@ This section of the user guide covers how to create new archives and organize yo
 		
 		<h4>Create an archive</h4>
 		<p class="body-text">Create a new archive by POSTing (as JSON) the URL and the Title.</p>
-		<pre>curl -H 'Content-Type: application/json' -X POST -d '{"url": "http://example.com", "title": "This is an example site"}' https://api.{{ request.get_host }}/v1/archives/?api_key=your-api-key</pre>
+		<pre>curl -H 'Content-Type: application/json' -X POST -d '{"url": "http://example.com", "title": "This is an example site", "folder": 1}' https://api.{{ request.get_host }}/v1/archives/?api_key=your-api-key</pre>
 		<p class="body-text">Response includes detailed information about the newly created archive</p>
 		<pre class="prettyprint">{"assets": [{"base_storage_path": "2015/1/21/21/41/8H4S-TNRA", "favicon": null, "image_capture": "pending", "pdf_capture": null, "warc_capture": "pending"}], "created_by": {"first_name": "Regular", "full_name": "Regular User", "id": 4, "last_name": "User", "short_name": "Regular"}, "creation_timestamp": "2015-01-21T16:41:15Z", "is_private": false, "expiration_date": "2017-01-21T16:41:15Z", "folders": ["/v1/folders/25/"], "guid": "8H4S-TNRA", "notes": "", "title": "This is a test page", "url": "http://example.com",  "organization": null, "view_count": 1}</pre>
-		
+		<p class="body-text">
+      <em>Destination folder and archive creation limits:</em> Archive creation limits are enforced based on the
+      destination folder. To create unlimited links, be sure to set <pre>"folder"</pre> to an folder owned by an organization.
+      See the <a href="{% url 'docs_developer_folders' %}">Folders API endpoint</a> for details on finding a target folder ID.
+    </p>
+
 		<h4>View the details of one archive</h4>
 		<pre>curl https://api.{{ request.get_host }}/v1/archives/Y6JJ-TDUJ/</pre>
 		<p class="body-text">This will show you details of an archive. Pass in the archive's globally unique ID using a GET request.</p>
