@@ -34,7 +34,7 @@ from ratelimit.decorators import ratelimit
 
 from ..models import Link, Registrar, Organization, LinkUser
 from perma.forms import ContactForm
-from perma.utils import if_anonymous, send_admin_email
+from perma.utils import if_anonymous, send_admin_email, ratelimit_ip_key
 
 logger = logging.getLogger(__name__)
 valid_serve_types = ['image', 'warc_download']
@@ -115,12 +115,9 @@ def stats(request):
 
 
 @if_anonymous(cache_control(max_age=settings.CACHE_MAX_AGES['single_linky']))
-@ratelimit(method='GET', rate=settings.MINUTE_LIMIT, block=True, ip=False,
-           keys=lambda req: req.META.get('HTTP_X_FORWARDED_FOR', req.META['REMOTE_ADDR']))
-@ratelimit(method='GET', rate=settings.HOUR_LIMIT, block=True, ip=False,
-           keys=lambda req: req.META.get('HTTP_X_FORWARDED_FOR', req.META['REMOTE_ADDR']))
-@ratelimit(method='GET', rate=settings.DAY_LIMIT, block=True, ip=False,
-           keys=lambda req: req.META.get('HTTP_X_FORWARDED_FOR', req.META['REMOTE_ADDR']))
+@ratelimit(rate=settings.MINUTE_LIMIT, block=True, key=ratelimit_ip_key)
+@ratelimit(rate=settings.HOUR_LIMIT, block=True, key=ratelimit_ip_key)
+@ratelimit(rate=settings.DAY_LIMIT, block=True, key=ratelimit_ip_key)
 def single_linky(request, guid):
     """
     Given a Perma ID, serve it up.
@@ -208,8 +205,7 @@ def rate_limit(request, exception):
     """
     When a user hits a rate limit, send them here.
     """
-
-    return render_to_response("rate_limit.html")
+    return render(request, "rate_limit.html")
 
 ## We need custom views for server errors because otherwise Django
 ## doesn't send a RequestContext (meaning we don't get STATIC_ROOT).
@@ -220,8 +216,7 @@ def server_error_500(request):
     return HttpResponseServerError(render_to_string('500.html', context_instance=RequestContext(request)))
 
 @csrf_exempt
-@ratelimit(method='GET', rate=settings.MINUTE_LIMIT, block=True, ip=False,
-           keys=lambda req: req.META.get('HTTP_X_FORWARDED_FOR', req.META['REMOTE_ADDR']))
+@ratelimit(rate=settings.MINUTE_LIMIT, block=True, key=ratelimit_ip_key)
 def contact(request):
     """
     Our contact form page
