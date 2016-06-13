@@ -21,6 +21,7 @@ import multiprocessing
 from multiprocessing import Process
 from contextlib import contextmanager
 from django.test.client import MULTIPART_CONTENT
+import random
 
 TEST_ASSETS_DIR = os.path.join(settings.PROJECT_ROOT, "perma/tests/assets")
 
