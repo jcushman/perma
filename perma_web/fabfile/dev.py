@@ -379,3 +379,31 @@ def read_playback_tests(*filepaths):
         err_count += len(sub_errs)
         print "%s: %s" % (err_type, len(sub_errs))
     print "Total:", err_count
+
+
+@task
+def init_repo():
+    """
+        Install git hooks from services/git_hooks into .git/hooks.
+
+        based on https://github.com/sjungwirth/githooks/blob/master/bin/git/init-hooks
+    """
+
+    hook_names = "applypatch-msg pre-applypatch post-applypatch pre-commit prepare-commit-msg commit-msg post-commit pre-rebase post-checkout post-merge pre-receive update post-receive post-update pre-auto-gc pre-push"
+    hook_dir = os.path.join(local("git rev-parse --show-toplevel", capture=True), ".git/hooks")
+    wrapper_file = os.path.join(settings.SERVICES_DIR, "git_hooks/contrib/hooks-wrapper")
+
+    # get relative path to the wrapper file from hook_dir,
+    # so we can create relative symlinks that work in and outside vagrant
+    wrapper_file_rel = os.path.relpath(wrapper_file, hook_dir)
+
+    for hook in hook_names.split():
+        hook_file = os.path.join(hook_dir, hook)
+        if os.path.islink(hook_file):
+            os.unlink(hook_file)
+        elif os.path.isfile(hook_file):
+            os.rename(hook_file, hook_file+".local")
+        os.symlink(wrapper_file_rel, hook_file)
+        local("chmod u+x %s" % hook_file)
+
+    local("chmod u+x %s" % wrapper_file)

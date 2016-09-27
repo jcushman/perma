@@ -1,0 +1,11 @@
+#!/bin/sh
+# load helpers
+. $(dirname -- "$0")/helpers
+
+if git status -s | grep  'requirements.in$'
+then
+  run_in_vagrant "pip-compile > requirements.txt"
+  git add $(dirname -- "$0")/../../perma_web/requirements.txt
+fi
+
+exit 0

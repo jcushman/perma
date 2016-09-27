@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# fast vagrant login for single commands
+# via https://github.com/filex/vagrant-ssh
+
+# skip first -- as it was meant for vagrant (not ssh)
+if [ $# -gt 1 -a "${1}" == "--" ]; then
+	shift
+fi
+
+DIR=$(pwd)
+
+# find vagrant dir "above"
+while [ "$DIR" != "/" ]; do
+	MACHINEFILE=$DIR/.vagrant/machines/default/virtualbox/id
+	if [ -f "$MACHINEFILE" ]; then
+		MACHINE=$(cat $MACHINEFILE)
+		PORT=$(/usr/local/bin/VBoxManage showvminfo $MACHINE |grep 'name = ssh' |sed -e 's/^.*host port = //' -e 's/,.*//')
+		if [ -z "$PORT" ]; then
+			echo "VirtualBox $MACHINE does not exist or has no ssh?" >&2
+			exit 12
+		fi
+		exec ssh -o Compression=yes -o DSAAuthentication=yes -o LogLevel=FATAL \
+			-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+			-o IdentitiesOnly=yes -i $DIR/.vagrant/machines/default/virtualbox/private_key \
+			vagrant@127.0.0.1 -p $PORT $@
+	fi
+
+	DIR=$(dirname $DIR);
+done
+
+echo "No vagrant machine found" >&2
+exit 1

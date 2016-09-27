@@ -1,0 +1,5 @@
+#!/bin/sh
+# load helpers
+. $(dirname -- "$0")/helpers
+
+run_in_vagrant "flake8"

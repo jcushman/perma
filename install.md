@@ -82,11 +82,19 @@ That's it! You should now be able to load Perma in your browser at `http://perma
 
 You can do the same thing for `celerybeat` and `celery_background`.
 
-Finally, you can run the tests like this:
+You can run the tests like this:
 
     (perma)vagrant@perma:/vagrant/perma_web$ fab test
 
 (You may have to answer "yes" to two questions about deleting the test database the first time you run the tests.)
+
+If you want to send a pull request, consider installing our git hooks before committing:
+
+    (perma)vagrant@perma:/vagrant/perma_web$ fab dev.init_repo
+    
+This will add symlinks to `.git/hooks` to run the hooks in `services/git_hooks`.
+These perform tasks like making sure that requirements.txt is updated if requirements.in changes,
+and making sure that code passes our flake8 linting requirements.
 
 ## Install
 

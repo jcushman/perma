@@ -1,0 +1,6 @@
+#!/bin/sh
+
+run_in_vagrant() {
+    # Use contrib/vagrant-ssh to connect to Vagrant because it's much faster than the normal `vagrant ssh` command
+    sh $(dirname -- "$0")/contrib/vagrant-ssh "cd /vagrant/perma_web; source /home/vagrant/.virtualenvs/perma/bin/activate; $@"
+}
