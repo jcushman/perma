@@ -8,6 +8,8 @@ import tempdir
 from datetime import datetime
 import logging
 from netaddr import IPAddress, IPNetwork
+import nacl.encoding
+import nacl.signing
 
 from django.core.mail import EmailMessage, send_mail
 from django.core.paginator import Paginator
@@ -271,3 +273,9 @@ def url_in_allowed_ip_range(url):
     except socket.gaierror:
         return False
     return ip_in_allowed_ip_range(ip)
+
+_digest_signing_key = nacl.signing.SigningKey(settings.WARC_SIGNING_KEY_PRIVATE, nacl.encoding.HexEncoder)
+def signed_digest_str(hash_obj):
+    """ Return signed string from given hash object. """
+    signed_digest = _digest_signing_key.sign(hash_obj.digest(), nacl.encoding.HexEncoder)
+    return b'%s-ed25519:%s' % (hash_obj.name.encode('utf-8'), signed_digest)

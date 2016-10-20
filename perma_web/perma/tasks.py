@@ -42,7 +42,7 @@ from django.db.models import Q
 
 from perma.models import WeekStats, MinuteStats, Registrar, LinkUser, Link, Organization, CDXLine, Capture, CaptureJob
 
-from perma.utils import run_task, url_in_allowed_ip_range
+from perma.utils import run_task, url_in_allowed_ip_range, signed_digest_str
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +353,11 @@ def proxy_capture(capture_job):
                     proxied_responses.append(response)
                     proxied_pair[1] = response
 
+        # create WarcWriter subclass for signed digests
+        class SignedDigestWarcWriter(WarcWriter):
+            def digest_str(self, hash_obj):
+                return signed_digest_str(hash_obj)
+
         # connect warcprox to an open port
         warcprox_port = 27500
         recorded_url_queue = queue.Queue()
@@ -373,7 +378,7 @@ def proxy_capture(capture_job):
         proxy_address = "127.0.0.1:%s" % warcprox_port
 
         # start warcprox in the background
-        warc_writer = WarcWriter(gzip=True, port=warcprox_port)
+        warc_writer = SignedDigestWarcWriter(gzip=True, port=warcprox_port, digest_algorithm='sha512')
         warc_writer_thread = WarcWriterThread(recorded_url_q=recorded_url_queue, warc_writer=warc_writer)
         warcprox_controller = WarcproxController(proxy, warc_writer_thread)
         warcprox_thread = threading.Thread(target=warcprox_controller.run_until_shutdown, name="warcprox", args=())

@@ -40,8 +40,7 @@ from pywb.cdx.cdxobject import CDXObject
 from pywb.warc.cdxindexer import write_cdx_index
 from taggit.managers import TaggableManager
 
-from .utils import copy_file_data
-
+from .utils import copy_file_data, signed_digest_str
 
 logger = logging.getLogger(__name__)
 
@@ -785,7 +784,7 @@ class Link(DeletableModel):
             (warctools.WarcRecord.ID, warctools.WarcRecord.random_warc_uuid()),
             (warctools.WarcRecord.DATE, warc_date),
             (warctools.WarcRecord.URL, url),
-            (warctools.WarcRecord.BLOCK_DIGEST, b'sha1:%s' % hashlib.sha1(data).hexdigest())
+            (warctools.WarcRecord.BLOCK_DIGEST, signed_digest_str(hashlib.sha512(data)))
         ]
         if extra_headers:
             headers.extend(extra_headers)

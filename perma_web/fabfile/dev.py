@@ -461,3 +461,11 @@ def check_s3_hashes():
                 m.update(buf)
         if m.hexdigest() != remote_paths[local_path]:
             print "Hash mismatch! Local: %s Remote: %s" % (m.hexdigest(), remote_paths[local_path])
+
+@task
+def generate_warc_signing_key():
+    import nacl.encoding
+    import nacl.signing
+    signing_key = nacl.signing.SigningKey.generate()
+    print "WARC_SIGNING_KEY_PRIVATE = '%s'" % signing_key.encode(encoder=nacl.encoding.HexEncoder)
+    print "WARC_SIGNING_KEY_PUBLIC = '%s'" % signing_key.verify_key.encode(encoder=nacl.encoding.HexEncoder)
