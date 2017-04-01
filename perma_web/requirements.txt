@@ -28,6 +28,8 @@ clint==0.5.1              # via internetarchive
 coverage==3.7.1
 cryptography==1.5.3       # via pyopenssl
 django-admin-smoke-tests==0.1.11
+django-crispy-forms==1.6.1
+django-filter==1.0.2
 django-model-utils==2.2
 django-mptt==0.8.5
 django-ratelimit==1.0.0
@@ -40,6 +42,7 @@ django-taggit==0.20.2
 django-tastypie==0.13.3
 Django==1.9.11            # via django-admin-smoke-tests, django-model-utils, django-sslserver
 django_webpack_loader==0.3.3
+djangorestframework==3.6.2
 docopt==0.6.2             # via internetarchive
 EasyProcess==0.2.3        # via pyvirtualdisplay
 ecdsa==0.13               # via paramiko

@@ -4,6 +4,7 @@ import os, sys
 
 # PROJECT_ROOT is the absolute path to the perma_web folder
 # We determine this robustly thanks to http://stackoverflow.com/a/2632297
+
 this_module = unicode(
     sys.executable if hasattr(sys, "frozen") else __file__,
     sys.getfilesystemencoding())
@@ -169,6 +170,11 @@ INSTALLED_APPS = (
     'simple_history',  # record model changes
     'taggit',  # model tagging
     'webpack_loader',  # track frontend assets
+
+    # api
+    'api2',
+    'rest_framework',
+    'django_filters',
 
     # django admin -- has to come after our apps for our admin template overrides to work
     'django.contrib.admin',
@@ -374,7 +380,7 @@ SINGLE_LINK_HEADER_TEST = False
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 
-API_VERSION = 1
+API_VERSION = 2
 
 TEMPLATE_VISIBLE_SETTINGS = (
     'API_VERSION',
@@ -465,3 +471,19 @@ TAGGIT_CASE_INSENSITIVE = True
 # If technical problems prevent proper analysis of a capture,
 # should we default to private?
 PRIVATE_LINKS_ON_FAILURE = False
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'api2.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'NON_FIELD_ERRORS_KEY': 'error',
+    'PAGE_SIZE': 300,
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    'SEARCH_PARAM': 'q',
+    'ORDERING_PARAM': 'order_by',
+}
+
+from django_filters import STRICTNESS
+FILTERS_STRICTNESS = STRICTNESS.RAISE_VALIDATION_ERROR

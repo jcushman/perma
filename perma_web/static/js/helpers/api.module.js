@@ -23,14 +23,13 @@ export function request (method, url, data, requestArgs){
   return $.ajax(requestArgs);
 }
 
-// parse and display error results from API
-export function showError (jqXHR) {
+export function getErrorMessage (jqXHR) {
   var message;
 
   if (jqXHR.status == 400 && jqXHR.responseText) {
     try {
       var parsedResponse = JSON.parse(jqXHR.responseText);
-      while(typeof parsedResponse == 'object') {
+      while (typeof parsedResponse == 'object') {
         for (var key in parsedResponse) {
           if (parsedResponse.hasOwnProperty(key)) {
             parsedResponse = parsedResponse[key];
@@ -47,5 +46,12 @@ export function showError (jqXHR) {
   } else {
     message = 'Error ' + jqXHR.status;
   }
+
+  return message;
+}
+
+// parse and display error results from API
+export function showError (jqXHR) {
+  var message = getErrorMessage(jqXHR);
   Helpers.informUser(message, 'danger');
 }
