@@ -1,0 +1,22 @@
+version: '2'
+
+services:
+  db:
+    image: mysql:5
+    environment:
+        MYSQL_ROOT_PASSWORD: password
+    volumes:
+      - ../services/mysql/data:/var/lib/mysql
+      - ../services/mysql/init:/docker-entrypoint-initdb.d
+    restart: always
+  web:
+    build: .
+    image: perma:0.1
+    tty: true
+    command: bash
+    volumes:
+      - ..:/perma
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
